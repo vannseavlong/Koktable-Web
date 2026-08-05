@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
-import { findRestaurantById } from '@/data/restaurants'
+import { useRestaurantById } from '@/data/restaurants'
+import { useCreateReservation } from '@/hooks/api/useReservations'
 import Chip from '@/components/ui/Chip'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,9 +10,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import FormField from '@/components/ui/FormField'
 import { useDisclosure } from '@/hooks/useDisclosure'
+import { ApiError } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
 import { ROUTES } from '@/lib/constants'
 import { formatDate, unsplashUrl } from '@/lib/format'
-import { generateBookingReference, validateContactDetails, type ContactDetailsErrors } from '@/lib/validation'
+import { validateContactDetails, type ContactDetailsErrors } from '@/lib/validation'
 import { selectItems } from '@/lib/utils'
 import type { ContactDetails } from '@/types/booking'
 
@@ -23,8 +26,10 @@ export default function Checkout() {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { isAuthenticated, login, register } = useAuth()
 
-  const restaurant = findRestaurantById(searchParams.get('restaurantId') ?? undefined)
+  const restaurantId = searchParams.get('restaurantId') ?? undefined
+  const { data: restaurant, isLoading: isRestaurantLoading, isError: isRestaurantError } = useRestaurantById(restaurantId)
   const date = searchParams.get('date') || ''
   const time = searchParams.get('time') || ''
   const partySize = searchParams.get('partySize') || '2'
@@ -37,8 +42,28 @@ export default function Checkout() {
   const [errors, setErrors] = useState<ContactDetailsErrors>({})
   const inlineAuth = useDisclosure()
 
-  if (!restaurant) {
+  // True when the auth panel was opened because the user clicked "Confirm
+  // Reservation" while signed out — a successful sign-in/register there
+  // should resume straight into reservation creation instead of just closing.
+  const [pendingConfirm, setPendingConfirm] = useState(false)
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
+  const [authName, setAuthName] = useState('')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [isAuthSubmitting, setIsAuthSubmitting] = useState(false)
+
+  const createReservation = useCreateReservation()
+
+  if (!restaurantId || (!isRestaurantLoading && (isRestaurantError || !restaurant))) {
     return <Navigate to={ROUTES.home} replace />
+  }
+  if (isRestaurantLoading || !restaurant) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <p className="text-sm text-ink-muted">{t('common.loading')}</p>
+      </div>
+    )
   }
 
   const formattedDate = date ? formatDate(date) : t('restaurantDetail.selectADate')
@@ -50,23 +75,68 @@ export default function Checkout() {
     setErrors((prev) => ({ ...prev, [field]: undefined }))
   }
 
+  const submitReservation = () => {
+    createReservation.mutate(
+      {
+        restaurant_id: restaurant.id,
+        guest_name: `${contact.firstName} ${contact.lastName}`.trim(),
+        party_size: Number(partySize),
+        start_date: date,
+        reservation_time: time,
+        notes: specialRequests.trim() || undefined,
+      },
+      {
+        onSuccess: (res) => {
+          navigate(ROUTES.confirmation, {
+            state: {
+              restaurantId: restaurant.id,
+              date,
+              time,
+              partySize,
+              name: `${contact.firstName} ${contact.lastName}`,
+              email: contact.email,
+              bookingRef: res.reservation.reservation_id,
+            },
+          })
+        },
+      },
+    )
+  }
+
   const handleConfirm = () => {
     const validationErrors = validateContactDetails(contact)
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors)
       return
     }
-    navigate(ROUTES.confirmation, {
-      state: {
-        restaurantId: restaurant.id,
-        date,
-        time,
-        partySize,
-        name: `${contact.firstName} ${contact.lastName}`,
-        email: contact.email,
-        bookingRef: generateBookingReference(),
-      },
-    })
+    if (!isAuthenticated) {
+      setPendingConfirm(true)
+      inlineAuth.open()
+      return
+    }
+    submitReservation()
+  }
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setAuthError(null)
+    setIsAuthSubmitting(true)
+    try {
+      if (authMode === 'login') {
+        await login(authEmail, authPassword)
+      } else {
+        await register(authName, authEmail, authPassword)
+      }
+      inlineAuth.close()
+      if (pendingConfirm) {
+        setPendingConfirm(false)
+        submitReservation()
+      }
+    } catch (err) {
+      setAuthError(err instanceof ApiError ? err.message : t('checkout.errors.authFailed'))
+    } finally {
+      setIsAuthSubmitting(false)
+    }
   }
 
   return (
@@ -127,21 +197,77 @@ export default function Checkout() {
                 />
               </FormField>
 
-              {/* Inline auth prompt */}
-              {!inlineAuth.isOpen ? (
-                <button onClick={inlineAuth.open} className="mt-3 text-xs text-terra font-medium hover:underline">
+              {/* Inline auth prompt — also the login/register gate the "Confirm
+                  Reservation" button opens for a signed-out guest. */}
+              {isAuthenticated ? null : !inlineAuth.isOpen ? (
+                <button
+                  onClick={() => { setPendingConfirm(false); inlineAuth.open() }}
+                  className="mt-3 text-xs text-terra font-medium hover:underline"
+                >
                   {t('checkout.signInToAutofill')}
                 </button>
               ) : (
-                <div className="mt-3 bg-cream rounded-lg p-3 border border-border space-y-2">
-                  <p className="text-xs font-medium text-ink">{t('checkout.signInToAutofillTitle')}</p>
-                  <Input type="email" placeholder={t('checkout.emailAddress')} className="bg-white" />
-                  <Input type="password" placeholder={t('login.password')} className="bg-white" />
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={inlineAuth.close} className="flex-1">{t('checkout.signIn')}</Button>
-                    <Button size="sm" variant="ghost" onClick={inlineAuth.close}>{t('checkout.cancel')}</Button>
+                <form onSubmit={handleAuthSubmit} className="mt-3 bg-cream rounded-lg p-3 border border-border space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-ink">
+                      {pendingConfirm ? t('checkout.signInToConfirmTitle') : t('checkout.signInToAutofillTitle')}
+                    </p>
+                    <div className="flex gap-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setAuthMode('login')}
+                        className={authMode === 'login' ? 'text-terra font-medium' : 'text-ink-faint'}
+                      >
+                        {t('checkout.signIn')}
+                      </button>
+                      <span className="text-ink-faint">/</span>
+                      <button
+                        type="button"
+                        onClick={() => setAuthMode('register')}
+                        className={authMode === 'register' ? 'text-terra font-medium' : 'text-ink-faint'}
+                      >
+                        {t('login.register')}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                  {authMode === 'register' && (
+                    <Input
+                      type="text"
+                      value={authName}
+                      onChange={(e) => setAuthName(e.target.value)}
+                      placeholder={t('login.fullNamePlaceholder')}
+                      className="bg-white"
+                      required
+                    />
+                  )}
+                  <Input
+                    type="email"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder={t('checkout.emailAddress')}
+                    className="bg-white"
+                    required
+                  />
+                  <Input
+                    type="password"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    placeholder={t('login.password')}
+                    className="bg-white"
+                    required
+                  />
+                  {authError && <p className="text-xs text-destructive">{authError}</p>}
+                  <div className="flex gap-2">
+                    <Button type="submit" size="sm" className="flex-1" disabled={isAuthSubmitting}>
+                      {isAuthSubmitting
+                        ? t('login.submitting')
+                        : authMode === 'login' ? t('checkout.signIn') : t('login.createAccount')}
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => { inlineAuth.close(); setPendingConfirm(false); setAuthError(null) }}>
+                      {t('checkout.cancel')}
+                    </Button>
+                  </div>
+                </form>
               )}
             </div>
 
@@ -204,8 +330,13 @@ export default function Checkout() {
             </div>
 
             <div>
-              <Button onClick={handleConfirm} size="lg" className="w-full text-base">
-                {t('checkout.confirmReservation')}
+              {createReservation.isError && (
+                <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2 mb-2">
+                  {createReservation.error instanceof ApiError ? createReservation.error.message : t('checkout.errors.reservationFailed')}
+                </p>
+              )}
+              <Button onClick={handleConfirm} size="lg" className="w-full text-base" disabled={createReservation.isPending}>
+                {createReservation.isPending ? t('checkout.confirming') : t('checkout.confirmReservation')}
               </Button>
               <p className="text-xs text-center text-ink-faint mt-2">
                 {t('checkout.agreeToPolicy')}{' '}

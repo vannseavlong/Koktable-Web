@@ -1,46 +1,73 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { findRestaurantById } from '@/data/restaurants'
-import { findBookingByRef } from '@/data/bookings'
+import { useRestaurantById } from '@/data/restaurants'
+import { useBookingByRef } from '@/data/bookings'
+import { useCancelReservation } from '@/hooks/api/useReservations'
 import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import PartySizeStepper from '@/components/ui/PartySizeStepper'
 import { useDisclosure } from '@/hooks/useDisclosure'
+import { ApiError } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
 import { MAX_PARTY_SIZE, MIN_PARTY_SIZE, ROUTES, TIME_SLOT_OPTIONS } from '@/lib/constants'
 import { selectItems } from '@/lib/utils'
 import { formatDate, unsplashUrl } from '@/lib/format'
-import type { BookingStatus, ConfirmedBooking } from '@/types/booking'
+import type { ConfirmedBooking } from '@/types/booking'
 
 export default function ManageBooking() {
   const { t } = useTranslation()
   const { ref } = useParams<{ ref: string }>()
   const location = useLocation()
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
 
   // A booking just created in Checkout is handed over via router state so it
-  // renders immediately; a bookmarked/shared link falls back to the mock
-  // dataset lookup by ref (this is where a real API fetch will plug in later).
+  // renders immediately without waiting on a refetch; otherwise fetch it by
+  // ref (the Backend's reservation_id) — this is the real API seam AGENTS.md
+  // calls out (previously a mock-dataset lookup).
   const freshBooking = location.state as ConfirmedBooking | null
-  const storedBooking = findBookingByRef(ref)
+  const { data: storedBooking, isLoading: isBookingLoading, isError: isBookingError } = useBookingByRef(freshBooking ? undefined : ref)
   const restaurantId = freshBooking?.restaurantId ?? storedBooking?.restaurantId
-  const restaurant = findRestaurantById(restaurantId)
+  const { data: restaurant, isLoading: isRestaurantLoading, isError: isRestaurantError } = useRestaurantById(restaurantId)
 
   const date = freshBooking?.date ?? storedBooking?.date ?? ''
   const time = freshBooking?.time ?? storedBooking?.time ?? ''
   const partySize = freshBooking?.partySize ?? String(storedBooking?.partySize ?? '')
 
-  const [status, setStatus] = useState<BookingStatus>(storedBooking?.status ?? 'confirmed')
   const cancelConfirm = useDisclosure()
   const modifyPanel = useDisclosure()
   const [newDate, setNewDate] = useState(date)
   const [newTime, setNewTime] = useState(time)
   const [newParty, setNewParty] = useState(Number(partySize) || 1)
-  const [cancelled, setCancelled] = useState(false)
   const [modified, setModified] = useState(false)
+  const [locallyCancelled, setLocallyCancelled] = useState(false)
+  const cancelReservation = useCancelReservation()
 
-  if (!ref || !restaurant) {
+  // The invalidated `reservation` query will eventually reflect `cancelled`
+  // too, but that refetch can lag a render behind — track it locally so the
+  // confirmation screen shows immediately after a successful cancel.
+  const status = locallyCancelled ? 'cancelled' : freshBooking ? 'confirmed' : (storedBooking?.status ?? 'confirmed')
+
+  if (!isAuthenticated) {
+    return <Navigate to={`${ROUTES.login}?next=${encodeURIComponent(location.pathname)}`} replace />
+  }
+  if (!ref) {
+    return <Navigate to={ROUTES.bookings} replace />
+  }
+  const isLoading = (!freshBooking && isBookingLoading) || (!!restaurantId && isRestaurantLoading)
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <p className="text-sm text-ink-muted">{t('common.loading')}</p>
+      </div>
+    )
+  }
+  if (!freshBooking && (isBookingError || !storedBooking || isRestaurantError || !restaurant)) {
+    return <Navigate to={ROUTES.bookings} replace />
+  }
+  if (!restaurant) {
     return <Navigate to={ROUTES.bookings} replace />
   }
 
@@ -48,17 +75,25 @@ export default function ManageBooking() {
   const timeOptions = restaurant.availableTimes.length > 0 ? restaurant.availableTimes : [...TIME_SLOT_OPTIONS]
 
   const handleCancel = () => {
-    setCancelled(true)
-    setStatus('cancelled')
-    cancelConfirm.close()
+    cancelReservation.mutate(ref, {
+      onSuccess: () => {
+        setLocallyCancelled(true)
+        cancelConfirm.close()
+      },
+    })
   }
 
+  // NOTE: the Backend's PATCH /user/reservations/:id only accepts `notes`
+  // and/or `status: "cancelled"` (FLUTTER_GUIDE.md §5) — there's no endpoint
+  // yet to change date/time/party size, so "Modify reservation" stays a
+  // local-only UI affordance (as it was before this integration) rather than
+  // a real mutation. TODO: wire this up once the Backend exposes it.
   const handleModify = () => {
     setModified(true)
     modifyPanel.close()
   }
 
-  if (cancelled) {
+  if (status === 'cancelled') {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center px-4">
         <div className="max-w-sm w-full text-center">
@@ -97,13 +132,22 @@ export default function ManageBooking() {
           </div>
         )}
 
+        {cancelReservation.isError && (
+          <div className="bg-destructive/10 rounded-xl p-3 mb-5">
+            <p className="text-sm text-destructive font-medium">
+              {cancelReservation.error instanceof ApiError ? cancelReservation.error.message : t('manageBooking.cancelError')}
+            </p>
+          </div>
+        )}
+
         <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 mb-6 text-sm font-medium ${
-          status === 'confirmed' ? 'bg-sage-light text-sage' :
+          status === 'confirmed' || status === 'active' ? 'bg-sage-light text-sage' :
           status === 'pending' ? 'bg-gold-light text-gold' :
+          status === 'completed' ? 'bg-cream-dark text-ink-muted' :
           'bg-terra-light text-terra'
         }`}>
           <span className="w-1.5 h-1.5 rounded-full bg-current" />
-          {status === 'confirmed' ? t('manageBooking.allSet') : status === 'pending' ? t('manageBooking.awaitingConfirmation') : t('manageBooking.cancelled')}
+          {status === 'pending' ? t('manageBooking.awaitingConfirmation') : t(`bookingStatus.${status}`)}
         </div>
 
         {/* Restaurant info */}
@@ -133,32 +177,6 @@ export default function ManageBooking() {
               <p className="text-xs text-ink-faint mb-1">{t('confirmation.guests')}</p>
               <p className="text-sm font-semibold text-ink">{modified ? newParty : partySize}</p>
             </div>
-          </div>
-        </div>
-
-        {/* Booking details */}
-        <div className="bg-white rounded-2xl border border-border p-5 mb-5">
-          <h3 className="font-medium text-sm text-ink mb-3">{t('manageBooking.yourBookingDetails')}</h3>
-          <div className="space-y-2 text-sm text-ink-muted">
-            <div className="flex justify-between">
-              <span>{t('manageBooking.occasion')}</span>
-              <span className="text-ink font-medium">Anniversary</span>
-            </div>
-            <div className="flex justify-between">
-              <span>{t('manageBooking.dietary')}</span>
-              <span className="text-ink font-medium">Vegetarian</span>
-            </div>
-            <div className="flex justify-between">
-              <span>{t('manageBooking.seating')}</span>
-              <span className="text-ink font-medium">Outdoor</span>
-            </div>
-            <div className="flex justify-between">
-              <span>{t('manageBooking.specialRequests')}</span>
-              <span className="text-ink font-medium text-right max-w-48">Window table if possible</span>
-            </div>
-          </div>
-          <div className="mt-4 pt-4 border-t border-border">
-            <p className="text-xs text-ink-muted">{t('manageBooking.contactRestaurant')} <a href={`tel:${restaurant.phone}`} className="text-terra font-medium hover:underline">{restaurant.phone}</a></p>
           </div>
         </div>
 
@@ -208,14 +226,16 @@ export default function ManageBooking() {
               {t('manageBooking.cancelConfirmDetail')}
             </p>
             <div className="flex gap-3">
-              <Button onClick={handleCancel} className="flex-1 font-semibold">{t('manageBooking.yesCancelMyBooking')}</Button>
+              <Button onClick={handleCancel} className="flex-1 font-semibold" disabled={cancelReservation.isPending}>
+                {cancelReservation.isPending ? t('manageBooking.cancelling') : t('manageBooking.yesCancelMyBooking')}
+              </Button>
               <Button variant="outline" onClick={cancelConfirm.close} className="flex-1 bg-white">{t('manageBooking.keepMyBooking')}</Button>
             </div>
           </div>
         )}
 
-        {/* Actions */}
-        {status !== 'cancelled' && !cancelConfirm.isOpen && (
+        {/* Actions — the `status === 'cancelled'` case already returned its own screen above. */}
+        {!cancelConfirm.isOpen && (
           <div className="flex flex-col sm:flex-row gap-3">
             <Button
               variant="outline"

@@ -1,25 +1,46 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import FormField from '@/components/ui/FormField'
+import { ApiError } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
 import { ROUTES } from '@/lib/constants'
 import { unsplashUrl } from '@/lib/format'
 
 export default function Login() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const { login, register } = useAuth()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const next = searchParams.get('next') || ROUTES.bookings
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    navigate(ROUTES.bookings)
+    setError(null)
+    setIsSubmitting(true)
+    try {
+      if (mode === 'login') {
+        await login(email, password)
+      } else {
+        await register(name, email, password)
+      }
+      navigate(next, { replace: true })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('login.errors.generic'))
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -63,13 +84,13 @@ export default function Login() {
           {/* Mode toggle */}
           <div className="flex gap-1 bg-cream-dark rounded-xl p-1 mb-6">
             <button
-              onClick={() => setMode('login')}
+              onClick={() => { setMode('login'); setError(null) }}
               className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'login' ? 'bg-white text-ink shadow-sm' : 'text-ink-muted hover:text-ink'}`}
             >
               {t('login.signIn')}
             </button>
             <button
-              onClick={() => setMode('register')}
+              onClick={() => { setMode('register'); setError(null) }}
               className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'register' ? 'bg-white text-ink shadow-sm' : 'text-ink-muted hover:text-ink'}`}
             >
               {t('login.register')}
@@ -132,8 +153,14 @@ export default function Login() {
               </div>
             </FormField>
 
-            <Button type="submit" size="lg" className="w-full mt-2">
-              {mode === 'login' ? t('login.signIn') : t('login.createAccount')}
+            {error && (
+              <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
+            )}
+
+            <Button type="submit" size="lg" className="w-full mt-2" disabled={isSubmitting}>
+              {isSubmitting
+                ? t('login.submitting')
+                : mode === 'login' ? t('login.signIn') : t('login.createAccount')}
             </Button>
           </form>
 

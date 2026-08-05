@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { findRestaurantById } from '@/data/restaurants'
+import { useRestaurantById } from '@/data/restaurants'
 import { Input } from '@/components/ui/input'
 import { useDisclosure } from '@/hooks/useDisclosure'
 import { ROUTES } from '@/lib/constants'
@@ -12,13 +12,20 @@ export default function Confirmation() {
   const location = useLocation()
   const navigate = useNavigate()
   const booking = location.state as ConfirmedBooking | null
-  const restaurant = findRestaurantById(booking?.restaurantId)
+  const { data: restaurant, isLoading: isRestaurantLoading, isError: isRestaurantError } = useRestaurantById(booking?.restaurantId)
   const createAccount = useDisclosure()
 
   // A confirmation only makes sense right after checkout hands off state;
   // a bare visit/refresh has nothing authentic to show, so bounce home.
-  if (!booking || !restaurant) {
+  if (!booking || (!isRestaurantLoading && (isRestaurantError || !restaurant))) {
     return <Navigate to={ROUTES.home} replace />
+  }
+  if (isRestaurantLoading || !restaurant) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <p className="text-sm text-ink-muted">{t('common.loading')}</p>
+      </div>
+    )
   }
 
   const formattedDate = formatDate(booking.date)
