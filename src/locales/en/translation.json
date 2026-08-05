@@ -16,7 +16,7 @@
     "fullyBookedTonight": "Fully booked tonight"
   },
   "footer": {
-    "tagline": "Reserve the best tables in Phnom Penh — from riverside fine dining to hidden neighborhood gems.",
+    "tagline": "Reserve the best tables in Cambodia — from riverside fine dining to hidden neighborhood gems.",
     "discover": "Discover",
     "allRestaurants": "All Restaurants",
     "khmerCuisine": "Khmer Cuisine",
@@ -31,13 +31,13 @@
     "contact": "Contact",
     "listYourRestaurant": "List Your Restaurant",
     "termsOfService": "Terms of Service",
-    "copyright": "© 2024 {{brand}}. Phnom Penh, Cambodia.",
-    "builtWithCare": "Built with care for Phnom Penh's dining community."
+    "copyright": "© 2024 {{brand}}. Cambodia.",
+    "builtWithCare": "Built with care for Cambodia's dining community."
   },
   "home": {
-    "eyebrow": "Phnom Penh's dining guide",
+    "eyebrow": "Cambodia's dining guide",
     "title": "Reserve your table in",
-    "titleHighlight": "Phnom Penh",
+    "titleHighlight": "Cambodia",
     "subtitle": "From riverside fine dining to neighbourhood Khmer kitchens — discover and book the city's best tables instantly.",
     "byLocation": "By Location",
     "byCuisine": "By Cuisine",
@@ -53,7 +53,7 @@
     "browseByNeighbourhood": "Browse by neighbourhood",
     "pickUpWhereYouLeftOff": "Pick up where you left off",
     "recentlyViewed": "Recently viewed",
-    "ctaTitle": "Own a restaurant in Phnom Penh?",
+    "ctaTitle": "Own a restaurant in Cambodia?",
     "ctaSubtitle": "Join KokTable and start accepting reservations today.",
     "ctaButton": "List your restaurant"
   },
@@ -75,7 +75,7 @@
     "noResultsSubtitle": "Try loosening your filters or exploring a different neighbourhood.",
     "clearFilters": "Clear all filters",
     "mapTitle": "Map view",
-    "mapComingSoon": "Interactive map coming soon. Showing {{count}} restaurants in Phnom Penh."
+    "mapComingSoon": "Interactive map coming soon. Showing {{count}} restaurants in Cambodia."
   },
   "restaurantDetail": {
     "backToResults": "← Back to results",
@@ -170,7 +170,7 @@
     "findAnotherRestaurant": "← Find another restaurant"
   },
   "login": {
-    "quote": "\"The best way to discover Phnom Penh is through its food.\"",
+    "quote": "\"The best way to discover Cambodia is through its food.\"",
     "quoteSubtitle": "Reserve your next great meal today.",
     "welcomeBack": "Welcome back",
     "createYourAccount": "Create your account",
@@ -206,7 +206,7 @@
     "upcoming": "Upcoming",
     "past": "Past",
     "noUpcomingTitle": "No upcoming reservations",
-    "noUpcomingSubtitle": "Discover Phnom Penh's best restaurants and book your next table.",
+    "noUpcomingSubtitle": "Discover Cambodia's best restaurants and book your next table.",
     "findARestaurant": "Find a restaurant",
     "viewRestaurant": "View restaurant",
     "manage": "Manage",

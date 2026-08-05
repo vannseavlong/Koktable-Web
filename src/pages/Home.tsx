@@ -47,7 +47,7 @@ export default function Home() {
             alt="Phnom Penh restaurant dining"
             className="w-full h-full object-cover opacity-35"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-ink/60 via-ink/40 to-ink/90" />
+          <div className="absolute inset-0 bg-linear-to-b from-ink/60 via-ink/40 to-ink/90" />
         </div>
 
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-20 pb-16 sm:pt-28 sm:pb-24">
@@ -150,7 +150,7 @@ export default function Home() {
             <p className="text-xs font-medium text-terra tracking-widest uppercase mb-1">{t('home.editorsPicks')}</p>
             <h2 className="font-display text-2xl sm:text-3xl font-semibold text-ink">{t('home.trendingThisWeek')}</h2>
           </div>
-          <Button variant="ghost" size="sm" className="!px-0 hidden sm:inline-flex" onClick={() => navigate(ROUTES.restaurants)}>
+          <Button variant="ghost" size="sm" className="px-0! hidden sm:inline-flex" onClick={() => navigate(ROUTES.restaurants)}>
             {t('home.viewAll')}
           </Button>
         </div>
@@ -190,7 +190,7 @@ export default function Home() {
                   alt={n.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-linear-to-t from-ink/80 via-transparent to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-3 text-left">
                   <h3 className="font-display font-semibold text-white text-sm sm:text-base">{n.name}</h3>
                   <p className="text-xs text-ink-faint mt-0.5 hidden sm:block">{n.description}</p>
