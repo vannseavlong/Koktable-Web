@@ -1,4 +1,4 @@
-export type BookingStatus = 'confirmed' | 'pending' | 'cancelled'
+export type BookingStatus = 'confirmed' | 'pending' | 'active' | 'completed' | 'cancelled'
 
 export interface Booking {
   ref: string

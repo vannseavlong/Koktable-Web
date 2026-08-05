@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
-import { restaurants, cuisines, neighborhoods } from '@/data/restaurants'
+import { useRestaurants, cuisines, neighborhoods } from '@/data/restaurants'
 import RestaurantListItem from '@/components/restaurant/RestaurantListItem'
 import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
@@ -23,6 +23,7 @@ export default function SearchResults() {
   const [sortBy, setSortBy] = useState<'relevance' | 'rating' | 'price'>('relevance')
   const [date, setDate] = useState(searchParams.get('date') ?? '')
   const [time, setTime] = useState(searchParams.get('time') ?? '')
+  const { data: restaurants = [], isLoading: isRestaurantsLoading } = useRestaurants()
 
   const filtered = restaurants
     .filter((r) => {
@@ -158,7 +159,9 @@ export default function SearchResults() {
         </div>
 
         {viewMode === 'list' ? (
-          filtered.length === 0 ? (
+          isRestaurantsLoading ? (
+            <p className="text-sm text-ink-muted text-center py-24">{t('common.loading')}</p>
+          ) : filtered.length === 0 ? (
             <div className="text-center py-24">
               <div className="text-5xl mb-4">🍽️</div>
               <h3 className="font-display text-xl font-semibold text-ink mb-2">{t('search.noResultsTitle')}</h3>

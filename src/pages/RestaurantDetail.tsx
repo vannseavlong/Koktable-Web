@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { findRestaurantById } from '@/data/restaurants'
+import { useRestaurantById } from '@/data/restaurants'
 import Chip from '@/components/ui/Chip'
 import PartySizeStepper from '@/components/ui/PartySizeStepper'
 import { Button } from '@/components/ui/button'
@@ -45,7 +45,7 @@ export default function RestaurantDetail() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const restaurant = findRestaurantById(id)
+  const { data: restaurant, isLoading: isRestaurantLoading, isError: isRestaurantError } = useRestaurantById(id)
 
   const [activeMenu, setActiveMenu] = useState('Starters')
   const [date, setDate] = useState('')
@@ -53,8 +53,15 @@ export default function RestaurantDetail() {
   const { partySize, increment, decrement } = usePartySize()
   const [selectedTime, setSelectedTime] = useState('')
 
-  if (!restaurant) {
+  if (!isRestaurantLoading && (isRestaurantError || !restaurant)) {
     return <Navigate to={ROUTES.restaurants} replace />
+  }
+  if (isRestaurantLoading || !restaurant) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <p className="text-sm text-ink-muted">{t('common.loading')}</p>
+      </div>
+    )
   }
 
   const handleReserve = () => {

@@ -5,6 +5,8 @@ import type { BookingStatus } from '@/types/booking'
 const STATUS_CLASSES: Record<BookingStatus, string> = {
   confirmed: 'bg-sage-light text-sage',
   pending: 'bg-gold-light text-gold',
+  active: 'bg-sage-light text-sage',
+  completed: 'bg-cream-dark text-ink-muted',
   cancelled: 'bg-terra-light text-terra',
 }
 

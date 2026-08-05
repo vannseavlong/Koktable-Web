@@ -1,4 +1,7 @@
 {
+  "common": {
+    "loading": "Loading…"
+  },
   "nav": {
     "home": "Home",
     "restaurants": "Restaurants",
@@ -125,6 +128,7 @@
     "specialRequests": "Special requests",
     "specialRequestsPlaceholder": "Any other requests for the restaurant...",
     "confirmReservation": "Confirm Reservation",
+    "confirming": "Confirming…",
     "agreeToPolicy": "By confirming, you agree to our",
     "cancellationPolicy": "cancellation policy",
     "editReservation": "Edit reservation ↗",
@@ -132,12 +136,15 @@
     "noCreditCardRequired": "No credit card required",
     "guest": "guest",
     "guests": "guests",
+    "signInToConfirmTitle": "Sign in to confirm your reservation",
     "errors": {
       "firstNameRequired": "First name is required",
       "lastNameRequired": "Last name is required",
       "phoneRequired": "Phone number is required",
       "emailRequired": "Email is required",
-      "emailInvalid": "Please enter a valid email"
+      "emailInvalid": "Please enter a valid email",
+      "authFailed": "Sign in failed. Please check your details and try again.",
+      "reservationFailed": "We couldn't confirm your reservation. Please try again."
     }
   },
   "confirmation": {
@@ -186,7 +193,11 @@
     "agreeToTerms": "By creating an account, you agree to our",
     "termsOfService": "Terms of Service",
     "show": "Show",
-    "hide": "Hide"
+    "hide": "Hide",
+    "submitting": "Please wait…",
+    "errors": {
+      "generic": "Something went wrong. Please try again."
+    }
   },
   "myBookings": {
     "title": "My reservations",
@@ -201,7 +212,8 @@
     "manage": "Manage",
     "bookAgain": "Book again",
     "leaveAReview": "Leave a review",
-    "awaitingConfirmation": "Awaiting confirmation from {{restaurant}} — you'll hear back within 2 hours."
+    "awaitingConfirmation": "Awaiting confirmation from {{restaurant}} — you'll hear back within 2 hours.",
+    "loadError": "We couldn't load your reservations. Please try again."
   },
   "manageBooking": {
     "myBookings": "← My bookings",
@@ -227,6 +239,8 @@
     "cancelConfirmTitle": "Cancel this reservation?",
     "cancelConfirmDetail": "Free cancellation is available up to 2 hours before your booking. This action cannot be undone.",
     "yesCancelMyBooking": "Yes, cancel my booking",
+    "cancelling": "Cancelling…",
+    "cancelError": "We couldn't cancel your reservation. Please try again.",
     "keepMyBooking": "Keep my booking",
     "modifyReservationButton": "✏️ Modify reservation",
     "cancelReservationButton": "✕ Cancel reservation",
@@ -240,6 +254,8 @@
   "bookingStatus": {
     "confirmed": "Confirmed",
     "pending": "Pending",
+    "active": "Active",
+    "completed": "Completed",
     "cancelled": "Cancelled"
   },
   "notFound": {

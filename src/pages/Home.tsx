@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { restaurants, neighborhoods, cuisines } from '@/data/restaurants'
+import { useRestaurants, neighborhoods, cuisines } from '@/data/restaurants'
 import RestaurantCard from '@/components/restaurant/RestaurantCard'
 import Chip from '@/components/ui/Chip'
 import PartySizeStepper from '@/components/ui/PartySizeStepper'
@@ -23,6 +23,7 @@ export default function Home() {
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const { partySize, increment, decrement } = usePartySize()
+  const { data: restaurants = [], isLoading: isRestaurantsLoading } = useRestaurants()
 
   const featured = restaurants.filter((r) => r.rating >= 4.5).slice(0, 3)
 
@@ -154,11 +155,15 @@ export default function Home() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          {featured.map((r) => (
-            <RestaurantCard key={r.id} restaurant={r} />
-          ))}
-        </div>
+        {isRestaurantsLoading ? (
+          <p className="text-sm text-ink-muted">{t('common.loading')}</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            {featured.map((r) => (
+              <RestaurantCard key={r.id} restaurant={r} />
+            ))}
+          </div>
+        )}
 
         <div className="mt-4 sm:hidden text-center">
           <Button variant="ghost" size="sm" onClick={() => navigate(ROUTES.restaurants)}>{t('home.viewAllRestaurants')}</Button>

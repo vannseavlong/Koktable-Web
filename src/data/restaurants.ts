@@ -1,15 +1,29 @@
+import { useQuery } from '@tanstack/react-query'
+import { apiFetch } from '@/lib/api'
+import { queryKeys } from '@/lib/queryKeys'
+import type { ApiRestaurant } from '@/types/api'
 import type { Cuisine, Neighborhood, Restaurant } from '@/types/restaurant'
 
-export const restaurants: Restaurant[] = [
+// This module is the seam AGENTS.md calls out: pages keep calling
+// `useRestaurants()` / `useRestaurantById(id)` (the hook-shaped equivalents of
+// the old synchronous `restaurants` array / `findRestaurantById`) and get back
+// the same `Restaurant` shape UI components already render.
+//
+// `GET /user/restaurants` (Backend/FLUTTER_GUIDE.md §3) only returns
+// restaurant_id/name/description/logo/banner/status/category_id today — no
+// rating, hours, amenities, per-slot availability, address/phone, or
+// neighborhood. Those fields stay mock "flavor" data (identical to the old
+// hardcoded array) cycled by index over real restaurants so the browsing UI
+// keeps rendering unchanged; only `id`/`name`/`description` are real.
+// TODO: confirm against actual backend response once merged — drop this
+// enrichment layer once `/user/restaurants` grows these fields for real.
+const ENRICHMENT: Omit<Restaurant, 'id' | 'name' | 'description'>[] = [
   {
-    id: '1',
-    name: 'Malis Restaurant',
     cuisine: ['Khmer', 'Fine Dining'],
     neighborhood: 'BKK1',
     priceLevel: 3,
     rating: 4.8,
     reviewCount: 312,
-    description: 'An elegant celebration of Cambodian cuisine, Malis elevates traditional recipes with refined technique and stunning presentation. Set within a colonial-era villa, every dish tells a story of Khmer culinary heritage.',
     knownFor: 'Fish amok, lok lak, amok trey',
     imageId: 'photo-1414235077428-338989a2e8c0',
     openNow: true,
@@ -28,14 +42,11 @@ export const restaurants: Restaurant[] = [
     availableTimes: ['6:00 PM', '6:30 PM', '7:00 PM', '8:00 PM', '8:30 PM'],
   },
   {
-    id: '2',
-    name: 'Topaz Restaurant',
     cuisine: ['French', 'Fine Dining'],
     neighborhood: 'BKK1',
     priceLevel: 4,
     rating: 4.7,
     reviewCount: 187,
-    description: "Phnom Penh's most acclaimed French restaurant, Topaz brings the finesse of Parisian gastronomy to the tropics. Jackets optional, memories mandatory.",
     knownFor: 'Duck confit, foie gras, French wine selection',
     imageId: 'photo-1559339352-11d035aa65de',
     openNow: true,
@@ -54,14 +65,11 @@ export const restaurants: Restaurant[] = [
     availableTimes: ['7:00 PM', '7:30 PM', '9:00 PM'],
   },
   {
-    id: '3',
-    name: 'Bassac Lane Kitchen',
     cuisine: ['Asian Fusion', 'Contemporary'],
     neighborhood: 'Bassac Lane',
     priceLevel: 2,
     rating: 4.5,
     reviewCount: 429,
-    description: 'Tucked in the vibrant laneway off Sothearos Blvd, this contemporary kitchen blends Cambodian ingredients with pan-Asian technique. Beloved by expats and locals alike for its relaxed energy and creative small plates.',
     knownFor: 'Sharing plates, natural wine, craft cocktails',
     imageId: 'photo-1555396273-367ea4eb4db5',
     openNow: true,
@@ -80,14 +88,11 @@ export const restaurants: Restaurant[] = [
     availableTimes: ['6:00 PM', '6:30 PM', '7:00 PM', '7:30 PM', '8:00 PM', '9:00 PM'],
   },
   {
-    id: '4',
-    name: 'Riverside Bistro',
     cuisine: ['International', 'Khmer'],
     neighborhood: 'Riverside',
     priceLevel: 2,
     rating: 4.3,
     reviewCount: 554,
-    description: "With the Tonle Sap river as its backdrop, Riverside Bistro is the city's most iconic spot for a sunset dinner. The menu spans local classics and international comfort food.",
     knownFor: 'Sunset views, river prawns, mango salad',
     imageId: 'photo-1537047902294-62a40c20a6ae',
     openNow: false,
@@ -106,14 +111,11 @@ export const restaurants: Restaurant[] = [
     availableTimes: [],
   },
   {
-    id: '5',
-    name: 'Chinese House',
     cuisine: ['Chinese', 'Cantonese'],
     neighborhood: 'Riverside',
     priceLevel: 3,
     rating: 4.6,
     reviewCount: 263,
-    description: "Housed in a beautifully restored 1920s shophouse, Chinese House serves classic Cantonese dishes and dim sum in one of Phnom Penh's most atmospheric settings.",
     knownFor: 'Peking duck, dim sum, har gow',
     imageId: 'photo-1569050467447-ce54b3bbc37d',
     openNow: true,
@@ -132,14 +134,11 @@ export const restaurants: Restaurant[] = [
     availableTimes: ['7:00 PM', '7:30 PM', '8:00 PM'],
   },
   {
-    id: '6',
-    name: 'Sra Bua',
     cuisine: ['Thai', 'Seafood'],
     neighborhood: 'Toul Tompong',
     priceLevel: 2,
     rating: 4.4,
     reviewCount: 198,
-    description: 'A beloved neighborhood haunt in Toul Tompong, Sra Bua specializes in southern Thai seafood with a Cambodian twist. Casual, lively, and consistently excellent.',
     knownFor: 'Whole fried fish, green curry, som tum',
     imageId: 'photo-1611143669185-af224c5e3252',
     openNow: true,
@@ -159,6 +158,10 @@ export const restaurants: Restaurant[] = [
   },
 ]
 
+// Filter-facet reference lists (neighborhood/cuisine pickers on Home/SearchResults).
+// Not part of the Web/TODO.md checklist — the Backend has no "neighborhood"
+// concept and `/user/cuisines` doesn't map 1:1 onto this display list — so
+// these stay local for now.
 export const neighborhoods: Neighborhood[] = [
   { name: 'BKK1', imageId: 'photo-1596422846543-75c6fc197f07', description: 'Upscale dining hub with international restaurants' },
   { name: 'Riverside', imageId: 'photo-1533929736458-ca588d08c8be', description: 'Scenic waterfront with local and international fare' },
@@ -179,6 +182,44 @@ export const cuisines: Cuisine[] = [
   { name: 'Seafood', emoji: '🦞' },
 ]
 
-export function findRestaurantById(id: string | undefined): Restaurant | undefined {
-  return id ? restaurants.find((r) => r.id === id) : undefined
+function hashIndex(id: string, length: number): number {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0
+  return hash % length
+}
+
+function toRestaurant(api: ApiRestaurant, index: number): Restaurant {
+  const enrichment = ENRICHMENT[index % ENRICHMENT.length]
+  return {
+    ...enrichment,
+    id: api.restaurant_id,
+    name: api.name,
+    description: api.description || `${api.name} — a Phnom Penh favorite.`,
+  }
+}
+
+// These change rarely — a long staleTime means Home → Detail → back doesn't refire the request.
+const RESTAURANTS_STALE_TIME = 5 * 60 * 1000
+
+export function useRestaurants() {
+  return useQuery({
+    queryKey: queryKeys.restaurants(),
+    queryFn: async () => {
+      const { restaurants } = await apiFetch<{ restaurants: ApiRestaurant[] }>('/user/restaurants')
+      return restaurants.map(toRestaurant)
+    },
+    staleTime: RESTAURANTS_STALE_TIME,
+  })
+}
+
+export function useRestaurantById(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.restaurant(id),
+    queryFn: async () => {
+      const { restaurant } = await apiFetch<{ restaurant: ApiRestaurant }>(`/user/restaurants/${id}`)
+      return toRestaurant(restaurant, hashIndex(restaurant.restaurant_id, ENRICHMENT.length))
+    },
+    enabled: !!id,
+    staleTime: RESTAURANTS_STALE_TIME,
+  })
 }
