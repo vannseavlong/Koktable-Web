@@ -61,7 +61,7 @@ export default function Confirmation() {
             />
             <div>
               <h3 className="font-display font-semibold text-ink text-base">{restaurant.name}</h3>
-              <p className="text-xs text-ink-faint mt-0.5">{restaurant.neighborhood}, Phnom Penh</p>
+              <p className="text-xs text-ink-faint mt-0.5">{[restaurant.district, restaurant.city].filter(Boolean).join(', ')}</p>
               <p className="text-xs text-ink-muted mt-1">{restaurant.address}</p>
             </div>
           </div>

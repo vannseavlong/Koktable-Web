@@ -16,6 +16,22 @@ export interface ApiUser {
   status?: string
 }
 
+// One entry of `ApiRestaurant.locations` (see Backend/ADMIN_API.md §5). Only the
+// fields this app actually reads are modeled — contact_email/rating/price_level/
+// images/google_place_id etc. also exist on the wire, parse them directly off the
+// raw response if/when needed.
+export interface ApiLocation {
+  location_id: string
+  address?: string
+  city?: string
+  // Sublocality/neighborhood (e.g. "BKK1") — a directory-import field, blank
+  // until backfilled (Backend/scripts/backfill-district.ts). Narrower than `city`.
+  district?: string
+  latitude?: number
+  longitude?: number
+  active?: boolean
+}
+
 export interface ApiRestaurant {
   restaurant_id: string
   category_id?: string
@@ -24,9 +40,13 @@ export interface ApiRestaurant {
   logo?: string
   banner?: string
   status: string
-  // `locations` / `cuisines` / `hours` are structured objects on the wire
-  // (see Backend/ADMIN_API.md §5) — not modeled here since nothing in this
-  // app reads them yet; parse directly off the raw response if/when needed.
+  // A restaurant can have more than one location (chain/branches); this app only
+  // uses the first (see toRestaurant() in src/data/restaurants.ts), same
+  // "primary location" assumption the merchant-facing API makes server-side.
+  locations?: ApiLocation[]
+  // `cuisines` / `hours` are also structured objects on the wire — not modeled
+  // here since nothing in this app reads them yet; parse directly off the raw
+  // response if/when needed.
 }
 
 export interface ApiCatalogItem {

@@ -32,7 +32,7 @@ function BookingCard({ booking, past }: { booking: Booking; past?: boolean }) {
           <div className="flex items-start justify-between mb-2">
             <div>
               <h3 className="font-display font-semibold text-ink">{r.name}</h3>
-              <p className="text-xs text-ink-faint">{r.neighborhood}</p>
+              <p className="text-xs text-ink-faint">{r.district || r.city}</p>
             </div>
             <StatusBadge status={booking.status} />
           </div>

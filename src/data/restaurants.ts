@@ -2,25 +2,24 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import type { ApiRestaurant } from '@/types/api'
-import type { Cuisine, Neighborhood, Restaurant } from '@/types/restaurant'
+import type { CityHighlight, Cuisine, Restaurant } from '@/types/restaurant'
 
 // This module is the seam AGENTS.md calls out: pages keep calling
 // `useRestaurants()` / `useRestaurantById(id)` (the hook-shaped equivalents of
 // the old synchronous `restaurants` array / `findRestaurantById`) and get back
 // the same `Restaurant` shape UI components already render.
 //
-// `GET /user/restaurants` (Backend/FLUTTER_GUIDE.md §3) only returns
-// restaurant_id/name/description/logo/banner/status/category_id today — no
-// rating, hours, amenities, per-slot availability, address/phone, or
-// neighborhood. Those fields stay mock "flavor" data (identical to the old
-// hardcoded array) cycled by index over real restaurants so the browsing UI
-// keeps rendering unchanged; only `id`/`name`/`description` are real.
-// TODO: confirm against actual backend response once merged — drop this
-// enrichment layer once `/user/restaurants` grows these fields for real.
-const ENRICHMENT: Omit<Restaurant, 'id' | 'name' | 'description'>[] = [
+// `GET /user/restaurants` (Backend/FLUTTER_GUIDE.md §3) now embeds real
+// `locations`/`cuisines`/`hours` — city/district/address/lat/long below come from
+// `locations[0]` for real (see toRestaurant()). Everything else (cuisine tags,
+// rating, review count, hours, amenities, phone, per-slot availability, hero
+// image) still doesn't have a real source the UI can use yet, so it stays mock
+// "flavor" data cycled by index over real restaurants, same as before.
+// TODO: fold cuisines/hours from the API response in here too once something
+// downstream actually needs them to be real.
+const ENRICHMENT: Omit<Restaurant, 'id' | 'name' | 'description' | 'city' | 'district'>[] = [
   {
     cuisine: ['Khmer', 'Fine Dining'],
-    neighborhood: 'BKK1',
     priceLevel: 3,
     rating: 4.8,
     reviewCount: 312,
@@ -43,7 +42,6 @@ const ENRICHMENT: Omit<Restaurant, 'id' | 'name' | 'description'>[] = [
   },
   {
     cuisine: ['French', 'Fine Dining'],
-    neighborhood: 'BKK1',
     priceLevel: 4,
     rating: 4.7,
     reviewCount: 187,
@@ -66,7 +64,6 @@ const ENRICHMENT: Omit<Restaurant, 'id' | 'name' | 'description'>[] = [
   },
   {
     cuisine: ['Asian Fusion', 'Contemporary'],
-    neighborhood: 'Bassac Lane',
     priceLevel: 2,
     rating: 4.5,
     reviewCount: 429,
@@ -89,7 +86,6 @@ const ENRICHMENT: Omit<Restaurant, 'id' | 'name' | 'description'>[] = [
   },
   {
     cuisine: ['International', 'Khmer'],
-    neighborhood: 'Riverside',
     priceLevel: 2,
     rating: 4.3,
     reviewCount: 554,
@@ -112,7 +108,6 @@ const ENRICHMENT: Omit<Restaurant, 'id' | 'name' | 'description'>[] = [
   },
   {
     cuisine: ['Chinese', 'Cantonese'],
-    neighborhood: 'Riverside',
     priceLevel: 3,
     rating: 4.6,
     reviewCount: 263,
@@ -135,7 +130,6 @@ const ENRICHMENT: Omit<Restaurant, 'id' | 'name' | 'description'>[] = [
   },
   {
     cuisine: ['Thai', 'Seafood'],
-    neighborhood: 'Toul Tompong',
     priceLevel: 2,
     rating: 4.4,
     reviewCount: 198,
@@ -158,16 +152,25 @@ const ENRICHMENT: Omit<Restaurant, 'id' | 'name' | 'description'>[] = [
   },
 ]
 
-// Filter-facet reference lists (neighborhood/cuisine pickers on Home/SearchResults).
-// Not part of the Web/TODO.md checklist — the Backend has no "neighborhood"
-// concept and `/user/cuisines` doesn't map 1:1 onto this display list — so
-// these stay local for now.
-export const neighborhoods: Neighborhood[] = [
-  { name: 'BKK1', imageId: 'photo-1596422846543-75c6fc197f07', description: 'Upscale dining hub with international restaurants' },
-  { name: 'Riverside', imageId: 'photo-1533929736458-ca588d08c8be', description: 'Scenic waterfront with local and international fare' },
-  { name: 'Toul Tompong', imageId: 'photo-1544025162-d76538891a99', description: 'Neighborhood gems and local favorites' },
-  { name: 'Bassac Lane', imageId: 'photo-1414235077428-338989a2e8c0', description: 'Trendy laneway bars and contemporary kitchens' },
+// City picker for Home/SearchResults, and the Home "browse by city" grid — curated
+// copy (imageId/description), not derived from API data. Matches the three cities
+// `restaurant_locations.city` is actually populated with today (Backend/CLAUDE.md's
+// "we now focus on Phnom Penh, Siemreap, and Sihanoukville"). District has no such
+// curated list — see districtsForCity() below, derived from loaded restaurants instead.
+export const cities: CityHighlight[] = [
+  { name: 'Phnom Penh', imageId: 'photo-1596422846543-75c6fc197f07', description: 'The capital — riverside dining and the city’s biggest restaurant scene' },
+  { name: 'Siem Reap', imageId: 'photo-1533929736458-ca588d08c8be', description: 'Gateway to Angkor, with a lively old-town dining strip' },
+  { name: 'Sihanoukville', imageId: 'photo-1544025162-d76538891a99', description: 'Coastal city known for fresh seafood and beachfront kitchens' },
 ]
+
+// Distinct, non-empty districts among the given restaurants, optionally narrowed to
+// one city — used to populate the District dropdown from whatever's actually loaded,
+// since (unlike city) there's no curated district list. Empty until
+// Backend/scripts/backfill-district.ts has been run against the live sheet.
+export function districtsForCity(restaurants: Restaurant[], city?: string): string[] {
+  const inCity = city ? restaurants.filter((r) => r.city === city) : restaurants
+  return Array.from(new Set(inCity.map((r) => r.district).filter((d): d is string => !!d))).sort()
+}
 
 export const cuisines: Cuisine[] = [
   { name: 'Khmer', emoji: '🍲' },
@@ -190,22 +193,41 @@ function hashIndex(id: string, length: number): number {
 
 function toRestaurant(api: ApiRestaurant, index: number): Restaurant {
   const enrichment = ENRICHMENT[index % ENRICHMENT.length]
+  // The merchant-facing "single location" assumption (see restaurantLocations.service.ts's
+  // getPrimary()) — a restaurant is created with exactly one location today, so the first
+  // is the primary/only one. address/city/district/lat/long are blank until the merchant
+  // fills them in (or, for district, until the directory backfill runs) — fall back to the
+  // mock address only, since showing a real-but-blank city/district would be worse than
+  // just not filtering on it.
+  const location = api.locations?.[0]
   return {
     ...enrichment,
     id: api.restaurant_id,
     name: api.name,
-    description: api.description || `${api.name} — a Phnom Penh favorite.`,
+    description: api.description || `${api.name} — a local favorite.`,
+    city: location?.city ?? '',
+    district: location?.district ?? '',
+    address: location?.address || enrichment.address,
   }
+}
+
+export interface RestaurantFilters {
+  city?: string
+  district?: string
 }
 
 // These change rarely — a long staleTime means Home → Detail → back doesn't refire the request.
 const RESTAURANTS_STALE_TIME = 5 * 60 * 1000
 
-export function useRestaurants() {
+export function useRestaurants(filters: RestaurantFilters = {}) {
   return useQuery({
-    queryKey: queryKeys.restaurants(),
+    queryKey: queryKeys.restaurants(filters),
     queryFn: async () => {
-      const { restaurants } = await apiFetch<{ restaurants: ApiRestaurant[] }>('/user/restaurants')
+      const params = new URLSearchParams()
+      if (filters.city) params.set('city', filters.city)
+      if (filters.district) params.set('district', filters.district)
+      const query = params.toString()
+      const { restaurants } = await apiFetch<{ restaurants: ApiRestaurant[] }>(`/user/restaurants${query ? `?${query}` : ''}`)
       return restaurants.map(toRestaurant)
     },
     staleTime: RESTAURANTS_STALE_TIME,

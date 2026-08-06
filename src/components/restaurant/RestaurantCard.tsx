@@ -37,7 +37,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: Restaurant 
           {restaurant.cuisine.map((c) => (
             <span key={c} className="text-xs text-ink-muted bg-cream rounded-full px-2 py-0.5">{c}</span>
           ))}
-          <span className="text-xs text-ink-faint">· {restaurant.neighborhood}</span>
+          <span className="text-xs text-ink-faint">· {restaurant.district || restaurant.city}</span>
         </div>
         <p className="text-xs text-ink-muted leading-relaxed">{t('restaurantCard.knownFor', { text: restaurant.knownFor })}</p>
         {restaurant.availableTimes.length > 0 && (

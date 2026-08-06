@@ -370,7 +370,7 @@ export default function Checkout() {
                   </div>
                   <div className="flex items-center gap-2 text-ink-muted">
                     <span className="text-base">📍</span>
-                    <span className="text-xs">{restaurant.neighborhood}, Phnom Penh</span>
+                    <span className="text-xs">{[restaurant.district, restaurant.city].filter(Boolean).join(', ')}</span>
                   </div>
                 </div>
                 <button

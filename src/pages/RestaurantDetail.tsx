@@ -116,7 +116,7 @@ export default function RestaurantDetail() {
                       <span key={c} className="text-sm text-ink-muted bg-cream-dark rounded-full px-3 py-0.5">{c}</span>
                     ))}
                     <span className="text-ink-faint">·</span>
-                    <span className="text-sm text-ink-muted">{restaurant.neighborhood}</span>
+                    <span className="text-sm text-ink-muted">{restaurant.district || restaurant.city}</span>
                     <span className="text-ink-faint">·</span>
                     <span className="text-sm font-medium text-ink-muted">{formatPrice(restaurant.priceLevel)}</span>
                   </div>

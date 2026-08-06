@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { useRestaurants, neighborhoods, cuisines } from '@/data/restaurants'
+import { useRestaurants, cities, cuisines, districtsForCity } from '@/data/restaurants'
 import RestaurantCard from '@/components/restaurant/RestaurantCard'
 import Chip from '@/components/ui/Chip'
 import PartySizeStepper from '@/components/ui/PartySizeStepper'
@@ -18,18 +18,25 @@ export default function Home() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchMode, setSearchMode] = useState<'location' | 'cuisine'>('location')
-  const [selectedNeighborhood, setSelectedNeighborhood] = useState('')
+  const [selectedCity, setSelectedCity] = useState('')
+  const [selectedDistrict, setSelectedDistrict] = useState('')
   const [selectedCuisine, setSelectedCuisine] = useState('')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const { partySize, increment, decrement } = usePartySize()
+  // Unfiltered — this list backs "Trending"/"Recently viewed" below as well as the
+  // district options, so it can't be scoped to the in-progress city selection.
   const { data: restaurants = [], isLoading: isRestaurantsLoading } = useRestaurants()
+  const districts = districtsForCity(restaurants, selectedCity)
 
   const featured = restaurants.filter((r) => r.rating >= 4.5).slice(0, 3)
 
   const handleSearch = () => {
     const params = new URLSearchParams()
-    if (searchMode === 'location' && selectedNeighborhood) params.set('neighborhood', selectedNeighborhood)
+    if (searchMode === 'location') {
+      if (selectedCity) params.set('city', selectedCity)
+      if (selectedDistrict) params.set('district', selectedDistrict)
+    }
     if (searchMode === 'cuisine' && selectedCuisine) params.set('cuisine', selectedCuisine)
     if (date) params.set('date', date)
     if (time) params.set('time', time)
@@ -44,7 +51,7 @@ export default function Home() {
         <div className="absolute inset-0">
           <img
             src={unsplashUrl('photo-1414235077428-338989a2e8c0', { width: 1600, height: 900 })}
-            alt="Phnom Penh restaurant dining"
+            alt="Cambodia restaurant dining"
             className="w-full h-full object-cover opacity-35"
           />
           <div className="absolute inset-0 bg-linear-to-b from-ink/60 via-ink/40 to-ink/90" />
@@ -87,17 +94,37 @@ export default function Home() {
             {searchMode === 'location' ? (
               <div className="flex flex-col sm:flex-row gap-2 mb-3">
                 <Select
-                  items={selectItems(neighborhoods.map((n) => n.name), ['all', t('home.allNeighborhoods')])}
-                  value={selectedNeighborhood || 'all'}
-                  onValueChange={(v) => setSelectedNeighborhood(v === 'all' || !v ? '' : v)}
+                  items={selectItems(cities.map((c) => c.name), ['all', t('home.allCities')])}
+                  value={selectedCity || 'all'}
+                  onValueChange={(v) => {
+                    const city = v === 'all' || !v ? '' : v
+                    setSelectedCity(city)
+                    setSelectedDistrict('')
+                  }}
                 >
                   <SelectTrigger className="w-full bg-cream">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{t('home.allNeighborhoods')}</SelectItem>
-                    {neighborhoods.map((n) => (
-                      <SelectItem key={n.name} value={n.name}>{n.name}</SelectItem>
+                    <SelectItem value="all">{t('home.allCities')}</SelectItem>
+                    {cities.map((c) => (
+                      <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  items={selectItems(districts, ['all', t('home.allDistricts')])}
+                  value={selectedCity ? selectedDistrict || 'all' : undefined}
+                  onValueChange={(v) => setSelectedDistrict(v === 'all' || !v ? '' : v)}
+                  disabled={!selectedCity}
+                >
+                  <SelectTrigger className="w-full bg-cream">
+                    <SelectValue placeholder={t('home.selectCityFirst')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('home.allDistricts')}</SelectItem>
+                    {districts.map((d) => (
+                      <SelectItem key={d} value={d}>{d}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -170,30 +197,30 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Browse by neighborhood */}
+      {/* Browse by city */}
       <section className="bg-cream-dark py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="mb-8">
             <p className="text-xs font-medium text-terra tracking-widest uppercase mb-1">{t('home.exploreTheCity')}</p>
-            <h2 className="font-display text-2xl sm:text-3xl font-semibold text-ink">{t('home.browseByNeighbourhood')}</h2>
+            <h2 className="font-display text-2xl sm:text-3xl font-semibold text-ink">{t('home.browseByCity')}</h2>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {neighborhoods.map((n) => (
+            {cities.map((c) => (
               <button
-                key={n.name}
-                onClick={() => navigate(ROUTES.restaurants)}
+                key={c.name}
+                onClick={() => navigate(`${ROUTES.restaurants}?city=${encodeURIComponent(c.name)}`)}
                 className="group relative aspect-square rounded-2xl overflow-hidden bg-border"
               >
                 <img
-                  src={unsplashUrl(n.imageId, { width: 400, height: 400 })}
-                  alt={n.name}
+                  src={unsplashUrl(c.imageId, { width: 400, height: 400 })}
+                  alt={c.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-linear-to-t from-ink/80 via-transparent to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-3 text-left">
-                  <h3 className="font-display font-semibold text-white text-sm sm:text-base">{n.name}</h3>
-                  <p className="text-xs text-ink-faint mt-0.5 hidden sm:block">{n.description}</p>
+                  <h3 className="font-display font-semibold text-white text-sm sm:text-base">{c.name}</h3>
+                  <p className="text-xs text-ink-faint mt-0.5 hidden sm:block">{c.description}</p>
                 </div>
               </button>
             ))}
@@ -223,7 +250,7 @@ export default function Home() {
               </div>
               <div className="min-w-0">
                 <h3 className="font-medium text-ink text-sm leading-tight truncate">{r.name}</h3>
-                <p className="text-xs text-ink-faint mt-0.5">{r.neighborhood}</p>
+                <p className="text-xs text-ink-faint mt-0.5">{r.district || r.city}</p>
                 <div className="mt-1">
                   <Rating value={r.rating} reviewCount={r.reviewCount} />
                 </div>
