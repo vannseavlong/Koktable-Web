@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useRestaurantById } from '@/data/restaurants'
+import { useCatalogItems } from '@/hooks/api/useCatalog'
 import Chip from '@/components/ui/Chip'
 import PartySizeStepper from '@/components/ui/PartySizeStepper'
 import { Button } from '@/components/ui/button'
@@ -9,24 +10,6 @@ import { DatePicker } from '@/components/ui/date-picker'
 import { usePartySize } from '@/hooks/usePartySize'
 import { ROUTES } from '@/lib/constants'
 import { formatPrice, unsplashUrl } from '@/lib/format'
-
-const menuItems = [
-  { category: 'Starters', items: [
-    { name: 'Fish Amok Mousse', desc: 'Steamed coconut fish curry in banana leaf, chili oil', price: '$8' },
-    { name: 'Nom Banh Chok', desc: 'Khmer noodles with green fish curry, fresh herbs', price: '$6' },
-    { name: 'Spring Rolls (4 pcs)', desc: 'Crispy prawn and pork rolls, sweet chili dipping sauce', price: '$7' },
-  ]},
-  { category: 'Mains', items: [
-    { name: 'Beef Lok Lak', desc: 'Stir-fried tenderloin, lime-pepper sauce, egg, pickled veg', price: '$16' },
-    { name: 'Char Kroeung Sach Ko', desc: 'Lemongrass beef skewers, green mango salad', price: '$18' },
-    { name: 'Prawn Curry', desc: 'River prawns in coconut broth, jasmine rice', price: '$22' },
-    { name: 'Vegetable Amok', desc: 'Seasonal vegetables in banana leaf, coconut curry', price: '$13' },
-  ]},
-  { category: 'Desserts', items: [
-    { name: 'Num Ansom Chek', desc: 'Banana sticky rice in banana leaf', price: '$5' },
-    { name: 'Iced Palm Sugar Coconut', desc: 'Chilled coconut milk, palm sugar jelly, jackfruit', price: '$6' },
-  ]},
-]
 
 const reviews = [
   { name: 'Sophie M.', rating: 5, date: 'October 2024', text: 'Exceptional Khmer food in a beautiful setting. The fish amok was perfection — silky, aromatic, and beautifully presented. Service was warm and attentive.' },
@@ -46,8 +29,9 @@ export default function RestaurantDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: restaurant, isLoading: isRestaurantLoading, isError: isRestaurantError } = useRestaurantById(id)
+  const { data: catalogData, isLoading: isCatalogLoading } = useCatalogItems(restaurant?.id, { enabled: !!restaurant })
 
-  const [activeMenu, setActiveMenu] = useState('Starters')
+  const [activeMenu, setActiveMenu] = useState<'product' | 'service'>('product')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const { partySize, increment, decrement } = usePartySize()
@@ -63,6 +47,13 @@ export default function RestaurantDetail() {
       </div>
     )
   }
+
+  const catalogItems = catalogData?.items ?? []
+  const menuSections = [
+    { key: 'product' as const, label: t('restaurantDetail.menuProducts'), items: catalogItems.filter((i) => i.item_type === 'product') },
+    { key: 'service' as const, label: t('restaurantDetail.menuServices'), items: catalogItems.filter((i) => i.item_type === 'service') },
+  ].filter((section) => section.items.length > 0)
+  const activeItems = menuSections.find((s) => s.key === activeMenu)?.items ?? menuSections[0]?.items ?? []
 
   const handleReserve = () => {
     const params = new URLSearchParams({
@@ -139,30 +130,42 @@ export default function RestaurantDetail() {
             {/* Menu */}
             <div className="mb-10">
               <h2 className="font-display text-xl font-semibold text-ink mb-4">{t('restaurantDetail.menu')}</h2>
-              <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
-                {menuItems.map((section) => (
-                  <button
-                    key={section.category}
-                    onClick={() => setActiveMenu(section.category)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                      activeMenu === section.category ? 'bg-terra text-white' : 'bg-cream-dark text-ink-muted hover:bg-border'
-                    }`}
-                  >
-                    {section.category}
-                  </button>
-                ))}
-              </div>
-              <div className="space-y-3">
-                {menuItems.find((s) => s.category === activeMenu)?.items.map((item) => (
-                  <div key={item.name} className="flex items-start justify-between gap-4 bg-white rounded-xl p-4 border border-border">
-                    <div>
-                      <h4 className="font-medium text-ink text-sm">{item.name}</h4>
-                      <p className="text-xs text-ink-faint mt-0.5">{item.desc}</p>
+              {isCatalogLoading ? (
+                <p className="text-sm text-ink-muted">{t('common.loading')}</p>
+              ) : menuSections.length === 0 ? (
+                <div className="bg-cream rounded-lg p-3 text-center">
+                  <p className="text-sm text-ink-faint">{t('restaurantDetail.menuEmpty')}</p>
+                </div>
+              ) : (
+                <>
+                  {menuSections.length > 1 && (
+                    <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
+                      {menuSections.map((section) => (
+                        <button
+                          key={section.key}
+                          onClick={() => setActiveMenu(section.key)}
+                          className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                            activeMenu === section.key ? 'bg-terra text-white' : 'bg-cream-dark text-ink-muted hover:bg-border'
+                          }`}
+                        >
+                          {section.label}
+                        </button>
+                      ))}
                     </div>
-                    <span className="font-mono text-sm text-ink-muted shrink-0">{item.price}</span>
+                  )}
+                  <div className="space-y-3">
+                    {activeItems.map((item) => (
+                      <div key={item.item_id} className="flex items-start justify-between gap-4 bg-white rounded-xl p-4 border border-border">
+                        <div>
+                          <h4 className="font-medium text-ink text-sm">{item.name}</h4>
+                          {item.description && <p className="text-xs text-ink-faint mt-0.5">{item.description}</p>}
+                        </div>
+                        <span className="font-mono text-sm text-ink-muted shrink-0">${item.price_from}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </>
+              )}
             </div>
 
             {/* Reviews */}

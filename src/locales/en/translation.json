@@ -6,7 +6,8 @@
     "home": "Home",
     "restaurants": "Restaurants",
     "myBookings": "My Bookings",
-    "signIn": "Sign in"
+    "signIn": "Sign in",
+    "signOut": "Sign out"
   },
   "restaurantCard": {
     "openNow": "Open now",
@@ -86,6 +87,9 @@
     "currentlyClosed": "Currently closed",
     "reviews": "reviews",
     "menu": "Menu",
+    "menuProducts": "Menu Items",
+    "menuServices": "Services",
+    "menuEmpty": "No menu items available yet",
     "reviewsHeading": "Reviews",
     "hours": "Hours",
     "location": "Location",
@@ -164,12 +168,9 @@
     "getDirections": "Get Directions",
     "manageBooking": "Manage Booking",
     "share": "Share",
-    "bookFasterNextTime": "Book faster next time",
-    "createAccountDetail": "Create an account to track this booking and autofill future reservations.",
-    "createAccount": "Create account",
-    "createYourAccount": "Create your account",
-    "choosePassword": "Choose a password",
-    "createAccountWith": "Create account with {{email}}",
+    "signedInAs": "Signed in as {{email}}",
+    "trackAllBookings": "Track all your bookings anytime from My Bookings.",
+    "viewMyBookings": "View my bookings",
     "findAnotherRestaurant": "← Find another restaurant"
   },
   "login": {

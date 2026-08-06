@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import type { ApiRestaurant } from '@/types/api'
-import type { CityHighlight, Cuisine, Restaurant } from '@/types/restaurant'
+import type { CityHighlight, Restaurant } from '@/types/restaurant'
 
 // This module is the seam AGENTS.md calls out: pages keep calling
 // `useRestaurants()` / `useRestaurantById(id)` (the hook-shaped equivalents of
@@ -152,37 +152,12 @@ const ENRICHMENT: Omit<Restaurant, 'id' | 'name' | 'description' | 'city' | 'dis
   },
 ]
 
-// City picker for Home/SearchResults, and the Home "browse by city" grid — curated
-// copy (imageId/description), not derived from API data. Matches the three cities
-// `restaurant_locations.city` is actually populated with today (Backend/CLAUDE.md's
-// "we now focus on Phnom Penh, Siemreap, and Sihanoukville"). District has no such
-// curated list — see districtsForCity() below, derived from loaded restaurants instead.
+// Home "browse by city" image-grid — curated marketing copy, not the real city vocabulary.
+// Filter dropdowns use useCities()/useDistricts() (src/hooks/api/useCatalog.ts) instead.
 export const cities: CityHighlight[] = [
   { name: 'Phnom Penh', imageId: 'photo-1596422846543-75c6fc197f07', description: 'The capital — riverside dining and the city’s biggest restaurant scene' },
   { name: 'Siem Reap', imageId: 'photo-1533929736458-ca588d08c8be', description: 'Gateway to Angkor, with a lively old-town dining strip' },
   { name: 'Sihanoukville', imageId: 'photo-1544025162-d76538891a99', description: 'Coastal city known for fresh seafood and beachfront kitchens' },
-]
-
-// Distinct, non-empty districts among the given restaurants, optionally narrowed to
-// one city — used to populate the District dropdown from whatever's actually loaded,
-// since (unlike city) there's no curated district list. Empty until
-// Backend/scripts/backfill-district.ts has been run against the live sheet.
-export function districtsForCity(restaurants: Restaurant[], city?: string): string[] {
-  const inCity = city ? restaurants.filter((r) => r.city === city) : restaurants
-  return Array.from(new Set(inCity.map((r) => r.district).filter((d): d is string => !!d))).sort()
-}
-
-export const cuisines: Cuisine[] = [
-  { name: 'Khmer', emoji: '🍲' },
-  { name: 'Chinese', emoji: '🥢' },
-  { name: 'Thai', emoji: '🌿' },
-  { name: 'Vietnamese', emoji: '🍜' },
-  { name: 'Japanese', emoji: '🍣' },
-  { name: 'Korean', emoji: '🥩' },
-  { name: 'Indian', emoji: '🍛' },
-  { name: 'Italian', emoji: '🍝' },
-  { name: 'French', emoji: '🥐' },
-  { name: 'Seafood', emoji: '🦞' },
 ]
 
 function hashIndex(id: string, length: number): number {
@@ -212,8 +187,8 @@ function toRestaurant(api: ApiRestaurant, index: number): Restaurant {
 }
 
 export interface RestaurantFilters {
-  city?: string
-  district?: string
+  cityId?: string
+  districtId?: string
 }
 
 // These change rarely — a long staleTime means Home → Detail → back doesn't refire the request.
@@ -224,8 +199,8 @@ export function useRestaurants(filters: RestaurantFilters = {}) {
     queryKey: queryKeys.restaurants(filters),
     queryFn: async () => {
       const params = new URLSearchParams()
-      if (filters.city) params.set('city', filters.city)
-      if (filters.district) params.set('district', filters.district)
+      if (filters.cityId) params.set('city_id', filters.cityId)
+      if (filters.districtId) params.set('district_id', filters.districtId)
       const query = params.toString()
       const { restaurants } = await apiFetch<{ restaurants: ApiRestaurant[] }>(`/user/restaurants${query ? `?${query}` : ''}`)
       return restaurants.map(toRestaurant)

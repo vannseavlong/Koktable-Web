@@ -21,18 +21,9 @@ export interface Restaurant {
   availableTimes: string[]
 }
 
-// Curated marketing card for the Home "browse by city" grid — imageId/description
-// are hand-picked copy, not derived from API data. District has no such curated list
-// (no per-district imagery/copy exists yet); district options are instead derived at
-// render time from whichever restaurants are loaded — see districtsForCity() in
-// src/data/restaurants.ts.
+// Curated marketing card for the Home "browse by city" grid — hand-picked copy, not API data.
 export interface CityHighlight {
   name: string
   imageId: string
   description: string
-}
-
-export interface Cuisine {
-  name: string
-  emoji: string
 }

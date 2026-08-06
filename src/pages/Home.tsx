@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { useRestaurants, cities, cuisines, districtsForCity } from '@/data/restaurants'
+import { useRestaurants, cities as cityHighlights } from '@/data/restaurants'
+import { useCities, useCuisines, useDistricts } from '@/hooks/api/useCatalog'
 import RestaurantCard from '@/components/restaurant/RestaurantCard'
 import Chip from '@/components/ui/Chip'
 import PartySizeStepper from '@/components/ui/PartySizeStepper'
@@ -18,30 +19,41 @@ export default function Home() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchMode, setSearchMode] = useState<'location' | 'cuisine'>('location')
-  const [selectedCity, setSelectedCity] = useState('')
-  const [selectedDistrict, setSelectedDistrict] = useState('')
+  const [selectedCityId, setSelectedCityId] = useState('')
+  const [selectedDistrictId, setSelectedDistrictId] = useState('')
   const [selectedCuisine, setSelectedCuisine] = useState('')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const { partySize, increment, decrement } = usePartySize()
-  // Unfiltered — this list backs "Trending"/"Recently viewed" below as well as the
-  // district options, so it can't be scoped to the in-progress city selection.
+  // Unfiltered — this list backs "Trending"/"Recently viewed" below.
   const { data: restaurants = [], isLoading: isRestaurantsLoading } = useRestaurants()
-  const districts = districtsForCity(restaurants, selectedCity)
+  const { data: citiesData, isLoading: isCitiesLoading } = useCities()
+  const apiCities = citiesData?.cities ?? []
+  const { data: districtsData } = useDistricts(selectedCityId || undefined)
+  const apiDistricts = districtsData?.districts ?? []
+  const { data: cuisinesData } = useCuisines()
+  const apiCuisines = cuisinesData?.cuisines ?? []
 
   const featured = restaurants.filter((r) => r.rating >= 4.5).slice(0, 3)
 
   const handleSearch = () => {
     const params = new URLSearchParams()
     if (searchMode === 'location') {
-      if (selectedCity) params.set('city', selectedCity)
-      if (selectedDistrict) params.set('district', selectedDistrict)
+      if (selectedCityId) params.set('city_id', selectedCityId)
+      if (selectedDistrictId) params.set('district_id', selectedDistrictId)
     }
     if (searchMode === 'cuisine' && selectedCuisine) params.set('cuisine', selectedCuisine)
     if (date) params.set('date', date)
     if (time) params.set('time', time)
     params.set('partySize', String(partySize))
     navigate(`${ROUTES.restaurants}?${params.toString()}`)
+  }
+
+  // Curated highlight cards are keyed by city name, not city_id — resolve before navigating.
+  const handleBrowseCity = (highlightName: string) => {
+    const match = apiCities.find((c) => c.name === highlightName)
+    if (!match) return
+    navigate(`${ROUTES.restaurants}?city_id=${encodeURIComponent(match.city_id)}`)
   }
 
   return (
@@ -94,12 +106,12 @@ export default function Home() {
             {searchMode === 'location' ? (
               <div className="flex flex-col sm:flex-row gap-2 mb-3">
                 <Select
-                  items={selectItems(cities.map((c) => c.name), ['all', t('home.allCities')])}
-                  value={selectedCity || 'all'}
+                  items={{ all: t('home.allCities'), ...Object.fromEntries(apiCities.map((c) => [c.city_id, c.name])) }}
+                  value={selectedCityId || 'all'}
                   onValueChange={(v) => {
-                    const city = v === 'all' || !v ? '' : v
-                    setSelectedCity(city)
-                    setSelectedDistrict('')
+                    const cityId = v === 'all' || !v ? '' : v
+                    setSelectedCityId(cityId)
+                    setSelectedDistrictId('')
                   }}
                 >
                   <SelectTrigger className="w-full bg-cream">
@@ -107,35 +119,35 @@ export default function Home() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t('home.allCities')}</SelectItem>
-                    {cities.map((c) => (
-                      <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
+                    {apiCities.map((c) => (
+                      <SelectItem key={c.city_id} value={c.city_id}>{c.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <Select
-                  items={selectItems(districts, ['all', t('home.allDistricts')])}
-                  value={selectedCity ? selectedDistrict || 'all' : undefined}
-                  onValueChange={(v) => setSelectedDistrict(v === 'all' || !v ? '' : v)}
-                  disabled={!selectedCity}
+                  items={{ all: t('home.allDistricts'), ...Object.fromEntries(apiDistricts.map((d) => [d.district_id, d.name])) }}
+                  value={selectedCityId ? selectedDistrictId || 'all' : undefined}
+                  onValueChange={(v) => setSelectedDistrictId(v === 'all' || !v ? '' : v)}
+                  disabled={!selectedCityId}
                 >
                   <SelectTrigger className="w-full bg-cream">
                     <SelectValue placeholder={t('home.selectCityFirst')} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t('home.allDistricts')}</SelectItem>
-                    {districts.map((d) => (
-                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                    {apiDistricts.map((d) => (
+                      <SelectItem key={d.district_id} value={d.district_id}>{d.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             ) : (
               <div className="flex flex-wrap gap-2 mb-3">
-                {cuisines.map((c) => (
+                {apiCuisines.map((c) => (
                   <Chip
-                    key={c.name}
+                    key={c.cuisine_id}
                     label={c.name}
-                    icon={c.emoji}
+                    icon={c.icon || undefined}
                     selected={selectedCuisine === c.name}
                     onClick={() => setSelectedCuisine(selectedCuisine === c.name ? '' : c.name)}
                   />
@@ -163,7 +175,12 @@ export default function Home() {
               <PartySizeStepper value={partySize} onIncrement={increment} onDecrement={decrement} />
             </div>
 
-            <Button onClick={handleSearch} size="lg" className="w-full">
+            <Button
+              onClick={handleSearch}
+              size="lg"
+              className="w-full"
+              disabled={searchMode === 'location' && isCitiesLoading}
+            >
               {t('home.findAvailableTables')}
             </Button>
           </div>
@@ -206,11 +223,12 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {cities.map((c) => (
+            {cityHighlights.map((c) => (
               <button
                 key={c.name}
-                onClick={() => navigate(`${ROUTES.restaurants}?city=${encodeURIComponent(c.name)}`)}
-                className="group relative aspect-square rounded-2xl overflow-hidden bg-border"
+                onClick={() => handleBrowseCity(c.name)}
+                disabled={isCitiesLoading}
+                className="group relative aspect-square rounded-2xl overflow-hidden bg-border disabled:opacity-60 disabled:cursor-wait"
               >
                 <img
                   src={unsplashUrl(c.imageId, { width: 400, height: 400 })}

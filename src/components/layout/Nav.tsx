@@ -1,15 +1,24 @@
 import { useTranslation } from 'react-i18next'
-import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useDisclosure } from '@/hooks/useDisclosure'
+import { useAuth } from '@/lib/auth'
 import { ROUTES } from '@/lib/constants'
 import LanguageSwitcher from '@/components/layout/LanguageSwitcher'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `hover:text-ink transition-colors ${isActive ? 'text-terra' : ''}`
 
 export default function Nav() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const { isOpen: menuOpen, toggle: toggleMenu, close: closeMenu } = useDisclosure()
+  const { isAuthenticated, user, logout } = useAuth()
+
+  const handleLogout = () => {
+    logout()
+    navigate(ROUTES.home)
+  }
 
   const navLinks = [
     { to: ROUTES.home, label: t('nav.home') },
@@ -36,12 +45,27 @@ export default function Nav() {
             </NavLink>
           ))}
           <LanguageSwitcher />
-          <Link
-            to={ROUTES.login}
-            className="px-4 py-2 rounded-full border border-terra text-terra hover:bg-terra hover:text-white transition-all text-sm font-medium"
-          >
-            {t('nav.signIn')}
-          </Link>
+          {isAuthenticated ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border hover:border-terra/40 transition-all text-sm font-medium text-ink">
+                <span className="w-6 h-6 rounded-full bg-terra-light flex items-center justify-center text-xs font-semibold text-terra">
+                  {(user?.full_name || user?.email || '?')[0].toUpperCase()}
+                </span>
+                {user?.full_name || user?.email}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate(ROUTES.bookings)}>{t('nav.myBookings')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout}>{t('nav.signOut')}</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link
+              to={ROUTES.login}
+              className="px-4 py-2 rounded-full border border-terra text-terra hover:bg-terra hover:text-white transition-all text-sm font-medium"
+            >
+              {t('nav.signIn')}
+            </Link>
+          )}
         </div>
 
         <div className="sm:hidden flex items-center gap-1">
@@ -71,9 +95,15 @@ export default function Nav() {
               {link.label}
             </NavLink>
           ))}
-          <Link to={ROUTES.login} onClick={closeMenu} className="text-left text-sm font-medium text-terra">
-            {t('nav.signIn')}
-          </Link>
+          {isAuthenticated ? (
+            <button onClick={() => { handleLogout(); closeMenu() }} className="text-left text-sm font-medium text-terra">
+              {t('nav.signOut')}
+            </button>
+          ) : (
+            <Link to={ROUTES.login} onClick={closeMenu} className="text-left text-sm font-medium text-terra">
+              {t('nav.signIn')}
+            </Link>
+          )}
         </div>
       )}
     </nav>

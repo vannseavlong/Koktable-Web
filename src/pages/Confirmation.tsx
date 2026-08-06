@@ -1,8 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useRestaurantById } from '@/data/restaurants'
-import { Input } from '@/components/ui/input'
-import { useDisclosure } from '@/hooks/useDisclosure'
+import { useAuth } from '@/lib/auth'
 import { ROUTES } from '@/lib/constants'
 import { formatDate, formatPartySize, unsplashUrl } from '@/lib/format'
 import type { ConfirmedBooking } from '@/types/booking'
@@ -13,7 +12,7 @@ export default function Confirmation() {
   const navigate = useNavigate()
   const booking = location.state as ConfirmedBooking | null
   const { data: restaurant, isLoading: isRestaurantLoading, isError: isRestaurantError } = useRestaurantById(booking?.restaurantId)
-  const createAccount = useDisclosure()
+  const { user } = useAuth()
 
   // A confirmation only makes sense right after checkout hands off state;
   // a bare visit/refresh has nothing authentic to show, so bounce home.
@@ -116,29 +115,21 @@ export default function Confirmation() {
           </button>
         </div>
 
-        {/* Guest create account prompt */}
-        {!createAccount.isOpen ? (
-          <div className="bg-cream rounded-xl border border-border p-4 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium text-ink">{t('confirmation.bookFasterNextTime')}</p>
-              <p className="text-xs text-ink-muted">{t('confirmation.createAccountDetail')}</p>
-            </div>
-            <button
-              onClick={createAccount.open}
-              className="px-4 py-2 bg-terra text-white rounded-lg text-xs font-medium shrink-0 hover:bg-terra-dark transition-all"
-            >
-              {t('confirmation.createAccount')}
-            </button>
+        {/* Booking a table always requires being signed in (Checkout's auth gate), so by the
+            time this page renders an account already exists — point to My Bookings instead
+            of the old guest-checkout "create an account" prompt. */}
+        <div className="bg-cream rounded-xl border border-border p-4 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-ink">{t('confirmation.signedInAs', { email: user?.email ?? booking.email })}</p>
+            <p className="text-xs text-ink-muted">{t('confirmation.trackAllBookings')}</p>
           </div>
-        ) : (
-          <div className="bg-white rounded-xl border border-border p-4">
-            <h3 className="font-semibold text-ink text-sm mb-3">{t('confirmation.createYourAccount')}</h3>
-            <Input type="password" placeholder={t('confirmation.choosePassword')} className="bg-cream mb-2" />
-            <button onClick={() => navigate(ROUTES.bookings)} className="w-full py-2.5 bg-terra text-white rounded-lg text-sm font-medium hover:bg-terra-dark transition-all">
-              {t('confirmation.createAccountWith', { email: booking.email })}
-            </button>
-          </div>
-        )}
+          <button
+            onClick={() => navigate(ROUTES.bookings)}
+            className="px-4 py-2 bg-terra text-white rounded-lg text-xs font-medium shrink-0 hover:bg-terra-dark transition-all"
+          >
+            {t('confirmation.viewMyBookings')}
+          </button>
+        </div>
 
         <div className="text-center mt-6">
           <Link to={ROUTES.home} className="text-sm text-terra font-medium hover:underline">

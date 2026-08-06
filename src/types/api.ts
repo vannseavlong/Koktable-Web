@@ -72,6 +72,35 @@ export interface ApiCategory {
   sort_order: number
 }
 
+export interface ApiCity {
+  city_id: string
+  name: string
+  name_zh?: string
+  name_km?: string
+  name_ko?: string
+  sort_order: number
+}
+
+export interface ApiDistrict {
+  district_id: string
+  city_id: string
+  name: string
+  name_zh?: string
+  name_km?: string
+  name_ko?: string
+  sort_order: number
+}
+
+export interface ApiCuisine {
+  cuisine_id: string
+  name: string
+  name_zh?: string
+  name_km?: string
+  name_ko?: string
+  icon?: string
+  sort_order: number
+}
+
 export interface ApiService {
   service_id: string
   name: string
@@ -94,10 +123,8 @@ export interface ApiReservation {
   restaurant_id?: string
   start_date: string
   end_date: string
-  // Only present on reservations created via the new restaurant_id-only mode.
-  // TODO: confirm against actual backend response once merged — this field
-  // isn't in the documented `reservation` response shape yet (FLUTTER_GUIDE.md
-  // §5), only in the request body for the new creation mode.
+  // Confirmed live on the wire (reservations.service.ts stores it on the row and
+  // withTotals() doesn't strip fields) — blank for the legacy service_id/item_id modes.
   reservation_time?: string
   daily_rate: number
   notes?: string

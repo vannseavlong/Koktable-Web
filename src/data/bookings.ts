@@ -18,8 +18,6 @@ function toBooking(r: ApiReservation): Booking {
     // FLUTTER_GUIDE.md §5's note on `restaurant_id`).
     restaurantId: r.restaurant_id ?? '',
     date: r.start_date,
-    // TODO: confirm against actual backend response once merged — `reservation_time`
-    // isn't in the documented response shape yet, only the new-mode request body.
     time: r.reservation_time ?? '',
     partySize: r.party_size,
     status: r.status,
