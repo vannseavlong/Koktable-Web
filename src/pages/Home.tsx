@@ -42,7 +42,7 @@ export default function Home() {
       if (selectedCityId) params.set('city_id', selectedCityId)
       if (selectedDistrictId) params.set('district_id', selectedDistrictId)
     }
-    if (searchMode === 'cuisine' && selectedCuisine) params.set('cuisine', selectedCuisine)
+    if (searchMode === 'cuisine' && selectedCuisine) params.set('cuisine_id', selectedCuisine)
     if (date) params.set('date', date)
     if (time) params.set('time', time)
     params.set('partySize', String(partySize))
@@ -148,8 +148,8 @@ export default function Home() {
                     key={c.cuisine_id}
                     label={c.name}
                     icon={c.icon || undefined}
-                    selected={selectedCuisine === c.name}
-                    onClick={() => setSelectedCuisine(selectedCuisine === c.name ? '' : c.name)}
+                    selected={selectedCuisine === c.cuisine_id}
+                    onClick={() => setSelectedCuisine(selectedCuisine === c.cuisine_id ? '' : c.cuisine_id)}
                   />
                 ))}
               </div>

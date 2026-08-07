@@ -1,8 +1,9 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
-import { useRestaurants } from "@/data/restaurants"
+import { useInfiniteRestaurants } from "@/data/restaurants"
 import { useCities, useCuisines, useDistricts } from "@/hooks/api/useCatalog"
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll"
 import RestaurantListItem from "@/components/restaurant/RestaurantListItem"
 import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/ui/date-picker"
@@ -24,7 +25,7 @@ export default function SearchResults() {
 
   const [viewMode, setViewMode] = useState<"list" | "map">("list")
   const [selectedCuisine, setSelectedCuisine] = useState(
-    searchParams.get("cuisine") ?? "",
+    searchParams.get("cuisine_id") ?? "",
   )
   const [selectedCityId, setSelectedCityId] = useState(
     searchParams.get("city_id") ?? "",
@@ -48,16 +49,24 @@ export default function SearchResults() {
   const { data: cuisinesData } = useCuisines()
   const apiCuisines = cuisinesData?.cuisines ?? []
 
-  // city_id/district_id are filtered server-side; no client-side pass needed.
-  const { data: restaurants = [], isLoading: isRestaurantsLoading } =
-    useRestaurants({
-      cityId: selectedCityId,
-      districtId: selectedDistrictId,
-    })
+  // city_id/district_id/cuisine_id are filtered server-side; price/rating/openNow below are not.
+  const {
+    data: infiniteData,
+    isLoading: isInfiniteLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteRestaurants({
+    cityId: selectedCityId,
+    districtId: selectedDistrictId,
+    cuisineId: selectedCuisine,
+  })
 
-  const filtered = restaurants
+  const pagedRestaurants =
+    infiniteData?.pages.flatMap((page) => page.restaurants) ?? []
+
+  const pagedFiltered = pagedRestaurants
     .filter((r) => {
-      if (selectedCuisine && !r.cuisine.includes(selectedCuisine)) return false
       if (r.priceLevel > maxPrice) return false
       if (r.rating < minRating) return false
       if (openNow && !r.openNow) return false
@@ -71,10 +80,18 @@ export default function SearchResults() {
       )
     })
 
+  const sentinelRef = useInfiniteScroll({
+    hasNextPage: hasNextPage ?? false,
+    isFetchingNextPage,
+    onLoadMore: fetchNextPage,
+  })
+
   const selectedCityName =
     apiCities.find((c) => c.city_id === selectedCityId)?.name ?? ""
   const selectedDistrictName =
     apiDistricts.find((d) => d.district_id === selectedDistrictId)?.name ?? ""
+  const selectedCuisineName =
+    apiCuisines.find((c) => c.cuisine_id === selectedCuisine)?.name ?? ""
 
   return (
     <div className="min-h-screen bg-cream">
@@ -84,10 +101,12 @@ export default function SearchResults() {
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex gap-2 flex-1 flex-wrap">
               <Select
-                items={selectItems(
-                  apiCuisines.map((c) => c.name),
-                  ["all", t("search.allCuisines")],
-                )}
+                items={{
+                  all: t("search.allCuisines"),
+                  ...Object.fromEntries(
+                    apiCuisines.map((c) => [c.cuisine_id, c.name]),
+                  ),
+                }}
                 value={selectedCuisine || "all"}
                 onValueChange={(v) =>
                   setSelectedCuisine(v === "all" || !v ? "" : v)
@@ -99,7 +118,7 @@ export default function SearchResults() {
                 <SelectContent>
                   <SelectItem value="all">{t("search.allCuisines")}</SelectItem>
                   {apiCuisines.map((c) => (
-                    <SelectItem key={c.cuisine_id} value={c.name}>
+                    <SelectItem key={c.cuisine_id} value={c.cuisine_id}>
                       {c.name}
                     </SelectItem>
                   ))}
@@ -268,7 +287,7 @@ export default function SearchResults() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-ink-muted">
-            {t("search.resultsFound", { count: filtered.length })}
+            {t("search.resultsFound", { count: pagedFiltered.length })}
             {(selectedDistrictName || selectedCityName) && (
               <span>
                 {" "}
@@ -285,7 +304,7 @@ export default function SearchResults() {
                 {" "}
                 ·{" "}
                 <span className="text-terra font-medium">
-                  {selectedCuisine}
+                  {selectedCuisineName}
                 </span>
               </span>
             )}
@@ -293,11 +312,11 @@ export default function SearchResults() {
         </div>
 
         {viewMode === "list" ? (
-          isRestaurantsLoading ? (
+          isInfiniteLoading ? (
             <p className="text-sm text-ink-muted text-center py-24">
               {t("common.loading")}
             </p>
-          ) : filtered.length === 0 ? (
+          ) : pagedFiltered.length === 0 ? (
             <div className="text-center py-24">
               <RestaurantIcon
                 className="w-12 h-12 mx-auto mb-4 text-ink-faint"
@@ -322,11 +341,22 @@ export default function SearchResults() {
               </Button>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filtered.map((r) => (
-                <RestaurantListItem key={r.id} restaurant={r} />
-              ))}
-            </div>
+            <>
+              <div className="space-y-4">
+                {pagedFiltered.map((r) => (
+                  <RestaurantListItem key={r.id} restaurant={r} />
+                ))}
+              </div>
+              {hasNextPage && (
+                <div ref={sentinelRef} className="py-6 text-center">
+                  {isFetchingNextPage && (
+                    <p className="text-sm text-ink-muted">
+                      {t("common.loading")}
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
           )
         ) : (
           <div
@@ -348,7 +378,7 @@ export default function SearchResults() {
                   {t("search.mapTitle")}
                 </h3>
                 <p className="text-sm text-ink-muted">
-                  {t("search.mapComingSoon", { count: filtered.length })}
+                  {t("search.mapComingSoon", { count: pagedFiltered.length })}
                 </p>
               </div>
             </div>

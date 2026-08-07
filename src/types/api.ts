@@ -40,13 +40,8 @@ export interface ApiRestaurant {
   logo?: string
   banner?: string
   status: string
-  // A restaurant can have more than one location (chain/branches); this app only
-  // uses the first (see toRestaurant() in src/data/restaurants.ts), same
-  // "primary location" assumption the merchant-facing API makes server-side.
   locations?: ApiLocation[]
-  // `cuisines` / `hours` are also structured objects on the wire — not modeled
-  // here since nothing in this app reads them yet; parse directly off the raw
-  // response if/when needed.
+  cuisines?: string[]
 }
 
 export interface ApiCatalogItem {

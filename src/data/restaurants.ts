@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import type { ApiRestaurant } from '@/types/api'
@@ -11,12 +11,13 @@ import type { CityHighlight, Restaurant } from '@/types/restaurant'
 //
 // `GET /user/restaurants` (Backend/FLUTTER_GUIDE.md §3) now embeds real
 // `locations`/`cuisines`/`hours` — city/district/address/lat/long below come from
-// `locations[0]` for real (see toRestaurant()). Everything else (cuisine tags,
-// rating, review count, hours, amenities, phone, per-slot availability, hero
-// image) still doesn't have a real source the UI can use yet, so it stays mock
-// "flavor" data cycled by index over real restaurants, same as before.
-// TODO: fold cuisines/hours from the API response in here too once something
-// downstream actually needs them to be real.
+// `locations[0]`, and cuisine tags come from `cuisines` (see toRestaurant()).
+// Everything else (rating, review count, hours, amenities, phone, per-slot
+// availability, hero image) still doesn't have a real source the UI can use
+// yet, so it stays mock "flavor" data cycled by index over real restaurants,
+// same as before.
+// TODO: fold hours from the API response in here too once something
+// downstream actually needs it to be real.
 const ENRICHMENT: Omit<Restaurant, 'id' | 'name' | 'description' | 'city' | 'district'>[] = [
   {
     cuisine: ['Khmer', 'Fine Dining'],
@@ -183,27 +184,82 @@ function toRestaurant(api: ApiRestaurant, index: number): Restaurant {
     city: location?.city ?? '',
     district: location?.district ?? '',
     address: location?.address || enrichment.address,
+    cuisine: api.cuisines?.length ? api.cuisines : enrichment.cuisine,
   }
 }
 
 export interface RestaurantFilters {
   cityId?: string
   districtId?: string
+  cuisineId?: string
 }
 
 // These change rarely — a long staleTime means Home → Detail → back doesn't refire the request.
 const RESTAURANTS_STALE_TIME = 5 * 60 * 1000
 
+// Shared by useRestaurants and useInfiniteRestaurants below — turns filters into the
+// city_id/district_id/cuisine_id query-string fragment `GET /user/restaurants`
+// (Backend/WEB_API_GUIDE.md §3) expects. Callers add their own limit/offset on top.
+function buildRestaurantsParams(filters: RestaurantFilters): URLSearchParams {
+  const params = new URLSearchParams()
+  if (filters.cityId) params.set('city_id', filters.cityId)
+  if (filters.districtId) params.set('district_id', filters.districtId)
+  if (filters.cuisineId) params.set('cuisine_id', filters.cuisineId)
+  return params
+}
+
 export function useRestaurants(filters: RestaurantFilters = {}) {
   return useQuery({
     queryKey: queryKeys.restaurants(filters),
     queryFn: async () => {
-      const params = new URLSearchParams()
-      if (filters.cityId) params.set('city_id', filters.cityId)
-      if (filters.districtId) params.set('district_id', filters.districtId)
-      const query = params.toString()
+      const query = buildRestaurantsParams(filters).toString()
       const { restaurants } = await apiFetch<{ restaurants: ApiRestaurant[] }>(`/user/restaurants${query ? `?${query}` : ''}`)
       return restaurants.map(toRestaurant)
+    },
+    staleTime: RESTAURANTS_STALE_TIME,
+  })
+}
+
+interface RestaurantsPage {
+  restaurants: Restaurant[]
+  total: number
+  limit: number
+  offset: number
+}
+
+/**
+ * Paginated equivalent of useRestaurants, for infinite-scroll result lists
+ * (SearchResults). Hits `GET /user/restaurants` with `limit`/`offset`
+ * (Backend/WEB_API_GUIDE.md §3) instead of fetching every matching restaurant
+ * in one response. Each page is mapped through the same toRestaurant() used
+ * by useRestaurants, with the enrichment cycle keyed off each restaurant's
+ * position in the overall filtered result set (`offset + i`) so it stays
+ * consistent as more pages load, rather than restarting at 0 every page.
+ */
+export function useInfiniteRestaurants(filters: RestaurantFilters = {}, pageSize = 20) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.restaurantsInfinite(filters),
+    queryFn: async ({ pageParam }): Promise<RestaurantsPage> => {
+      const params = buildRestaurantsParams(filters)
+      params.set('limit', String(pageSize))
+      params.set('offset', String(pageParam))
+      const { restaurants, total, limit, offset } = await apiFetch<{
+        restaurants: ApiRestaurant[]
+        total: number
+        limit: number
+        offset: number
+      }>(`/user/restaurants?${params.toString()}`)
+      return {
+        restaurants: restaurants.map((r, i) => toRestaurant(r, offset + i)),
+        total,
+        limit,
+        offset,
+      }
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      const nextOffset = lastPage.offset + lastPage.limit
+      return nextOffset < lastPage.total ? nextOffset : undefined
     },
     staleTime: RESTAURANTS_STALE_TIME,
   })
