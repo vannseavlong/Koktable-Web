@@ -1,3 +1,5 @@
+import StarIcon from '@/components/icons/StarIcon'
+
 interface RatingProps {
   value: number
   reviewCount?: number
@@ -6,9 +8,10 @@ interface RatingProps {
 
 export default function Rating({ value, reviewCount, size = 'sm' }: RatingProps) {
   const textSize = size === 'sm' ? 'text-xs' : 'text-sm'
+  const starSize = size === 'sm' ? 'size-3' : 'size-3.5'
   return (
     <span className={`inline-flex items-center gap-1 ${textSize}`}>
-      <span className="text-yellow-500">★</span>
+      <StarIcon className={`${starSize} text-yellow-500 shrink-0`} />
       <span className="font-semibold text-ink">{value}</span>
       {reviewCount !== undefined && <span className="text-ink-faint">({reviewCount})</span>}
     </span>

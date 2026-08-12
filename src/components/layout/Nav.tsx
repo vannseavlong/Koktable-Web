@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useDisclosure } from '@/hooks/useDisclosure'
@@ -5,6 +6,16 @@ import { useAuth } from '@/lib/auth'
 import { ROUTES } from '@/lib/constants'
 import LanguageSwitcher from '@/components/layout/LanguageSwitcher'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `hover:text-ink transition-colors ${isActive ? 'text-terra' : ''}`
@@ -14,9 +25,21 @@ export default function Nav() {
   const navigate = useNavigate()
   const { isOpen: menuOpen, toggle: toggleMenu, close: closeMenu } = useDisclosure()
   const { isAuthenticated, user, logout } = useAuth()
+  // Kept separate from the dropdown/mobile-menu's own open state: DropdownMenuItem closes
+  // its menu on click, which would otherwise tear down a trigger-nested confirm dialog
+  // before the user could answer it.
+  const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-  const handleLogout = () => {
-    logout()
+  const handleConfirmLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      await logout()
+    } finally {
+      setIsLoggingOut(false)
+    }
+    setConfirmLogoutOpen(false)
+    closeMenu()
     navigate(ROUTES.home)
   }
 
@@ -55,7 +78,7 @@ export default function Nav() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => navigate(ROUTES.bookings)}>{t('nav.myBookings')}</DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout}>{t('nav.signOut')}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setConfirmLogoutOpen(true)}>{t('nav.signOut')}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
@@ -96,7 +119,7 @@ export default function Nav() {
             </NavLink>
           ))}
           {isAuthenticated ? (
-            <button onClick={() => { handleLogout(); closeMenu() }} className="text-left text-sm font-medium text-terra">
+            <button onClick={() => setConfirmLogoutOpen(true)} className="text-left text-sm font-medium text-terra">
               {t('nav.signOut')}
             </button>
           ) : (
@@ -106,6 +129,21 @@ export default function Nav() {
           )}
         </div>
       )}
+
+      <AlertDialog open={confirmLogoutOpen} onOpenChange={setConfirmLogoutOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('nav.signOutConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('nav.signOutConfirmDescription')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="border-t-0">
+            <AlertDialogCancel disabled={isLoggingOut}>{t('nav.signOutCancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmLogout} disabled={isLoggingOut}>
+              {isLoggingOut ? t('nav.signingOut') : t('nav.signOut')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </nav>
   )
 }

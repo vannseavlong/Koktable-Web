@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useRestaurantById } from '@/data/restaurants'
 import { useBookingByRef } from '@/data/bookings'
 import { useCancelReservation } from '@/hooks/api/useReservations'
+import CheckIcon from '@/components/icons/CheckIcon'
 import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -127,7 +128,7 @@ export default function ManageBooking() {
 
         {modified && (
           <div className="bg-sage-light rounded-xl p-3 mb-5 flex items-center gap-2">
-            <span className="text-sage">✓</span>
+            <CheckIcon className="size-4 text-sage shrink-0" />
             <p className="text-sm text-sage font-medium">{t('manageBooking.bookingUpdated')}</p>
           </div>
         )}

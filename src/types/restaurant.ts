@@ -24,6 +24,7 @@ export interface Restaurant {
 // Curated marketing card for the Home "browse by city" grid — hand-picked copy, not API data.
 export interface CityHighlight {
   name: string
-  imageId: string
+  /** Path to a local image under `public/` (e.g. `/phnom_penh.webp`), not an Unsplash id. */
+  image: string
   description: string
 }

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import type { Restaurant } from '@/types/restaurant'
+import StarIcon from '@/components/icons/StarIcon'
 import { ROUTES } from '@/lib/constants'
 import { formatPrice, unsplashUrl } from '@/lib/format'
 
@@ -19,7 +20,7 @@ export default function RestaurantCard({ restaurant }: { restaurant: Restaurant 
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
         <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-full px-2 py-0.5 flex items-center gap-1">
-          <span className="text-yellow-500 text-xs">★</span>
+          <StarIcon className="size-3 text-yellow-500 shrink-0" />
           <span className="text-xs font-semibold text-ink">{restaurant.rating}</span>
         </div>
         {restaurant.openNow && (

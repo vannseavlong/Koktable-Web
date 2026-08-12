@@ -194,7 +194,7 @@ export default function Home() {
             <p className="text-xs font-medium text-terra tracking-widest uppercase mb-1">{t('home.editorsPicks')}</p>
             <h2 className="font-display text-2xl sm:text-3xl font-semibold text-ink">{t('home.trendingThisWeek')}</h2>
           </div>
-          <Button variant="ghost" size="sm" className="px-0! hidden sm:inline-flex" onClick={() => navigate(ROUTES.restaurants)}>
+          <Button variant="ghost" size="sm" className="px-2! hidden sm:inline-flex" onClick={() => navigate(ROUTES.restaurants)}>
             {t('home.viewAll')}
           </Button>
         </div>
@@ -231,7 +231,7 @@ export default function Home() {
                 className="group relative aspect-square rounded-2xl overflow-hidden bg-border disabled:opacity-60 disabled:cursor-wait"
               >
                 <img
-                  src={unsplashUrl(c.imageId, { width: 400, height: 400 })}
+                  src={c.image}
                   alt={c.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />

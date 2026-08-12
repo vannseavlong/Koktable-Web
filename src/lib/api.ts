@@ -1,6 +1,7 @@
 import { AUTH_TOKEN_STORAGE_KEY, DEFAULT_API_BASE_URL } from '@/lib/constants'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL
+/** Backend base URL — also used directly for full-page navigations (e.g. the Google OAuth redirect in `pages/Login.tsx`) that can't go through `apiFetch`. */
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL
 
 /**
  * Thrown for any non-2xx response. Carries the Backend's `{ error, details? }`
@@ -44,7 +45,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method ?? 'GET',
     headers,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,

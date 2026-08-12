@@ -7,7 +7,11 @@
     "restaurants": "Restaurants",
     "myBookings": "My Bookings",
     "signIn": "Sign in",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "signingOut": "Signing out\u2026",
+    "signOutConfirmTitle": "Sign out?",
+    "signOutConfirmDescription": "You'll need to sign in again to manage your reservations.",
+    "signOutCancel": "Cancel"
   },
   "restaurantCard": {
     "openNow": "Open now",
@@ -77,7 +81,9 @@
     "noResultsSubtitle": "Try loosening your filters or exploring a different neighbourhood.",
     "clearFilters": "Clear all filters",
     "mapTitle": "Map view",
-    "mapComingSoon": "Interactive map coming soon. Showing {{count}} restaurants in Phnom Penh."
+    "mapComingSoon": "Interactive map coming soon. Showing {{count}} restaurants in Phnom Penh.",
+    "previousPage": "Previous",
+    "nextPage": "Next"
   },
   "restaurantDetail": {
     "backToResults": "← Back to results",

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useRestaurantById } from '@/data/restaurants'
 import { useCreateReservation } from '@/hooks/api/useReservations'
 import Chip from '@/components/ui/Chip'
@@ -9,6 +9,12 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import FormField from '@/components/ui/FormField'
+import AuthDialog from '@/components/auth/AuthDialog'
+import CalendarIcon from '@/components/icons/CalendarIcon'
+import CheckIcon from '@/components/icons/CheckIcon'
+import ClockIcon from '@/components/icons/ClockIcon'
+import LocationIcon from '@/components/icons/LocationIcon'
+import UsersIcon from '@/components/icons/UsersIcon'
 import { useDisclosure } from '@/hooks/useDisclosure'
 import { ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
@@ -16,6 +22,7 @@ import { ROUTES } from '@/lib/constants'
 import { formatDate, unsplashUrl } from '@/lib/format'
 import { validateContactDetails, type ContactDetailsErrors } from '@/lib/validation'
 import { selectItems } from '@/lib/utils'
+import { savePendingCheckout, type PendingCheckoutSnapshot } from '@/lib/pendingCheckout'
 import type { ContactDetails } from '@/types/booking'
 
 const DIETARY_OPTIONS = ['Vegetarian', 'Vegan', 'Gluten-free', 'Halal', 'Nut allergy']
@@ -26,7 +33,8 @@ export default function Checkout() {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { isAuthenticated, login, register } = useAuth()
+  const location = useLocation()
+  const { isAuthenticated } = useAuth()
 
   const restaurantId = searchParams.get('restaurantId') ?? undefined
   const { data: restaurant, isLoading: isRestaurantLoading, isError: isRestaurantError } = useRestaurantById(restaurantId)
@@ -40,42 +48,46 @@ export default function Checkout() {
   const [seating, setSeating] = useState('')
   const [specialRequests, setSpecialRequests] = useState('')
   const [errors, setErrors] = useState<ContactDetailsErrors>({})
-  const inlineAuth = useDisclosure()
+  const authDialog = useDisclosure()
 
-  // True when the auth panel was opened because the user clicked "Confirm
+  // True when the auth dialog was opened because the user clicked "Confirm
   // Reservation" while signed out — a successful sign-in/register there
   // should resume straight into reservation creation instead of just closing.
   const [pendingConfirm, setPendingConfirm] = useState(false)
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
-  const [authName, setAuthName] = useState('')
-  const [authEmail, setAuthEmail] = useState('')
-  const [authPassword, setAuthPassword] = useState('')
-  const [authError, setAuthError] = useState<string | null>(null)
-  const [isAuthSubmitting, setIsAuthSubmitting] = useState(false)
+
+  // Set once by the resume-from-Google effect below when the snapshot it restored
+  // had autoSubmit: true — a separate effect submits once restaurant data (refetched
+  // fresh after the redirect) is actually available, since it can't have been ready
+  // yet the instant the form fields were restored.
+  const [autoSubmitPending, setAutoSubmitPending] = useState(false)
 
   const createReservation = useCreateReservation()
 
-  if (!restaurantId || (!isRestaurantLoading && (isRestaurantError || !restaurant))) {
-    return <Navigate to={ROUTES.home} replace />
-  }
-  if (isRestaurantLoading || !restaurant) {
-    return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <p className="text-sm text-ink-muted">{t('common.loading')}</p>
-      </div>
-    )
-  }
+  // Restore the booking this page was mid-filling before "Continue with Google" sent
+  // the browser away (see lib/pendingCheckout.ts / app/App.tsx) — router state only,
+  // consumed once. Clearing it via `replace` afterward means a refresh or back-nav
+  // won't reapply (or re-auto-submit) it.
+  const resumeCheckout = (location.state as { resumeCheckout?: PendingCheckoutSnapshot } | null)?.resumeCheckout
+  useEffect(() => {
+    if (!resumeCheckout) return
+    setContact(resumeCheckout.contact)
+    setOccasion(resumeCheckout.occasion)
+    setDietary(resumeCheckout.dietary)
+    setSeating(resumeCheckout.seating)
+    setSpecialRequests(resumeCheckout.specialRequests)
+    if (resumeCheckout.autoSubmit) setAutoSubmitPending(true)
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+    // Deliberately empty deps: this should run exactly once, right after mount, off
+    // whatever location.state this page was navigated in with — not re-run if
+    // `resumeCheckout`/`navigate`/`location` identities change on a later render (by
+    // which point the state-clearing call above has already made resumeCheckout undefined).
+  }, [])
 
-  const formattedDate = date ? formatDate(date) : t('restaurantDetail.selectADate')
-
-  const errorText = (code?: string) => (code ? t(`checkout.errors.${code}`) : undefined)
-
-  const updateContact = (field: keyof ContactDetails, value: string) => {
-    setContact((prev) => ({ ...prev, [field]: value }))
-    setErrors((prev) => ({ ...prev, [field]: undefined }))
-  }
-
+  // Defined above the early-return guards below (and defensively re-checks `restaurant`
+  // itself) so the auto-submit effect just underneath — a hook, so it can't come after
+  // a conditional return — is able to call it.
   const submitReservation = () => {
+    if (!restaurant) return
     createReservation.mutate(
       {
         restaurant_id: restaurant.id,
@@ -103,6 +115,35 @@ export default function Checkout() {
     )
   }
 
+  // Fires once the restored booking (above) both wants to auto-submit and has a loaded
+  // restaurant to submit against — the restaurant fetch is still in flight the instant
+  // the form fields get restored, so this can't just happen inline in that same effect.
+  useEffect(() => {
+    if (!autoSubmitPending || isRestaurantLoading || !restaurant) return
+    setAutoSubmitPending(false)
+    submitReservation()
+  }, [autoSubmitPending, isRestaurantLoading, restaurant])
+
+  if (!restaurantId || (!isRestaurantLoading && (isRestaurantError || !restaurant))) {
+    return <Navigate to={ROUTES.home} replace />
+  }
+  if (isRestaurantLoading || !restaurant) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <p className="text-sm text-ink-muted">{t('common.loading')}</p>
+      </div>
+    )
+  }
+
+  const formattedDate = date ? formatDate(date) : t('restaurantDetail.selectADate')
+
+  const errorText = (code?: string) => (code ? t(`checkout.errors.${code}`) : undefined)
+
+  const updateContact = (field: keyof ContactDetails, value: string) => {
+    setContact((prev) => ({ ...prev, [field]: value }))
+    setErrors((prev) => ({ ...prev, [field]: undefined }))
+  }
+
   const handleConfirm = () => {
     const validationErrors = validateContactDetails(contact)
     if (Object.keys(validationErrors).length > 0) {
@@ -111,32 +152,40 @@ export default function Checkout() {
     }
     if (!isAuthenticated) {
       setPendingConfirm(true)
-      inlineAuth.open()
+      authDialog.open()
       return
     }
     submitReservation()
   }
 
-  const handleAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setAuthError(null)
-    setIsAuthSubmitting(true)
-    try {
-      if (authMode === 'login') {
-        await login(authEmail, authPassword)
-      } else {
-        await register(authName, authEmail, authPassword)
-      }
-      inlineAuth.close()
-      if (pendingConfirm) {
-        setPendingConfirm(false)
-        submitReservation()
-      }
-    } catch (err) {
-      setAuthError(err instanceof ApiError ? err.message : t('checkout.errors.authFailed'))
-    } finally {
-      setIsAuthSubmitting(false)
+  // AuthDialog already closed itself by the time this fires — just resume whatever
+  // triggered it. Only the "Confirm Reservation" gate (not the standalone "sign in to
+  // autofill" link) should fall straight into submitting the reservation.
+  const handleAuthenticated = () => {
+    if (pendingConfirm) {
+      setPendingConfirm(false)
+      submitReservation()
     }
+  }
+
+  // Google is a full-page redirect (see AuthDialog/GoogleSignInButton) — this is the
+  // only chance to save the in-progress booking before the browser leaves the page.
+  // `pendingConfirm` carries over as `autoSubmit`: the redirect back re-derives the
+  // same "was this the Confirm Reservation gate, or just the autofill link" distinction
+  // `handleAuthenticated` above uses for the email/password path.
+  const handleBeforeGoogleRedirect = () => {
+    savePendingCheckout({
+      restaurantId: restaurant.id,
+      date,
+      time,
+      partySize,
+      contact,
+      occasion,
+      dietary,
+      seating,
+      specialRequests,
+      autoSubmit: pendingConfirm,
+    })
   }
 
   return (
@@ -197,77 +246,16 @@ export default function Checkout() {
                 />
               </FormField>
 
-              {/* Inline auth prompt — also the login/register gate the "Confirm
-                  Reservation" button opens for a signed-out guest. */}
-              {isAuthenticated ? null : !inlineAuth.isOpen ? (
+              {/* Opens the same AuthDialog the "Confirm Reservation" button gates a
+                  signed-out guest behind (rendered once, below) — filling in the
+                  booking form is no place to ask someone to authenticate inline. */}
+              {!isAuthenticated && (
                 <button
-                  onClick={() => { setPendingConfirm(false); inlineAuth.open() }}
+                  onClick={() => { setPendingConfirm(false); authDialog.open() }}
                   className="mt-3 text-xs text-terra font-medium hover:underline"
                 >
                   {t('checkout.signInToAutofill')}
                 </button>
-              ) : (
-                <form onSubmit={handleAuthSubmit} className="mt-3 bg-cream rounded-lg p-3 border border-border space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-ink">
-                      {pendingConfirm ? t('checkout.signInToConfirmTitle') : t('checkout.signInToAutofillTitle')}
-                    </p>
-                    <div className="flex gap-2 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => setAuthMode('login')}
-                        className={authMode === 'login' ? 'text-terra font-medium' : 'text-ink-faint'}
-                      >
-                        {t('checkout.signIn')}
-                      </button>
-                      <span className="text-ink-faint">/</span>
-                      <button
-                        type="button"
-                        onClick={() => setAuthMode('register')}
-                        className={authMode === 'register' ? 'text-terra font-medium' : 'text-ink-faint'}
-                      >
-                        {t('login.register')}
-                      </button>
-                    </div>
-                  </div>
-                  {authMode === 'register' && (
-                    <Input
-                      type="text"
-                      value={authName}
-                      onChange={(e) => setAuthName(e.target.value)}
-                      placeholder={t('login.fullNamePlaceholder')}
-                      className="bg-white"
-                      required
-                    />
-                  )}
-                  <Input
-                    type="email"
-                    value={authEmail}
-                    onChange={(e) => setAuthEmail(e.target.value)}
-                    placeholder={t('checkout.emailAddress')}
-                    className="bg-white"
-                    required
-                  />
-                  <Input
-                    type="password"
-                    value={authPassword}
-                    onChange={(e) => setAuthPassword(e.target.value)}
-                    placeholder={t('login.password')}
-                    className="bg-white"
-                    required
-                  />
-                  {authError && <p className="text-xs text-destructive">{authError}</p>}
-                  <div className="flex gap-2">
-                    <Button type="submit" size="sm" className="flex-1" disabled={isAuthSubmitting}>
-                      {isAuthSubmitting
-                        ? t('login.submitting')
-                        : authMode === 'login' ? t('checkout.signIn') : t('login.createAccount')}
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => { inlineAuth.close(); setPendingConfirm(false); setAuthError(null) }}>
-                      {t('checkout.cancel')}
-                    </Button>
-                  </div>
-                </form>
               )}
             </div>
 
@@ -357,19 +345,19 @@ export default function Checkout() {
                 <h3 className="font-display font-semibold text-ink text-base mb-3">{restaurant.name}</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2 text-ink-muted">
-                    <span className="text-base">📅</span>
+                    <CalendarIcon className="size-4 shrink-0" />
                     <span>{formattedDate}</span>
                   </div>
                   <div className="flex items-center gap-2 text-ink-muted">
-                    <span className="text-base">🕖</span>
+                    <ClockIcon className="size-4 shrink-0" />
                     <span>{time}</span>
                   </div>
                   <div className="flex items-center gap-2 text-ink-muted">
-                    <span className="text-base">👥</span>
+                    <UsersIcon className="size-4 shrink-0" />
                     <span>{partySize} {Number(partySize) === 1 ? t('checkout.guest') : t('checkout.guests')}</span>
                   </div>
                   <div className="flex items-center gap-2 text-ink-muted">
-                    <span className="text-base">📍</span>
+                    <LocationIcon className="size-4 shrink-0" />
                     <span className="text-xs">{[restaurant.district, restaurant.city].filter(Boolean).join(', ')}</span>
                   </div>
                 </div>
@@ -381,11 +369,11 @@ export default function Checkout() {
                 </button>
                 <div className="mt-4 pt-4 border-t border-border">
                   <div className="flex items-center gap-2 text-xs text-sage">
-                    <span>✓</span>
+                    <CheckIcon className="size-3.5 shrink-0" />
                     <span>{t('checkout.freeCancellation')}</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-ink-muted mt-1">
-                    <span>✓</span>
+                    <CheckIcon className="size-3.5 shrink-0" />
                     <span>{t('checkout.noCreditCardRequired')}</span>
                   </div>
                 </div>
@@ -394,6 +382,17 @@ export default function Checkout() {
           </div>
         </div>
       </div>
+
+      <AuthDialog
+        open={authDialog.isOpen}
+        onOpenChange={(open) => {
+          if (open) authDialog.open()
+          else { authDialog.close(); setPendingConfirm(false) }
+        }}
+        onAuthenticated={handleAuthenticated}
+        onBeforeGoogleRedirect={handleBeforeGoogleRedirect}
+        title={pendingConfirm ? t('checkout.signInToConfirmTitle') : t('checkout.signInToAutofillTitle')}
+      />
     </div>
   )
 }

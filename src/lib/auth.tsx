@@ -13,7 +13,10 @@ interface AuthContextValue {
   isInitializing: boolean
   login: (email: string, password: string) => Promise<void>
   register: (fullName: string, email: string, password: string) => Promise<void>
-  logout: () => void
+  /** Persists a JWT handed back from the Google OAuth redirect (see `pages/Login.tsx` / `app/App.tsx`) — the backend redirect carries only `?token=`, no user object, so `authMe` picks up the profile on its own once `token` is set. */
+  loginWithToken: (token: string) => void
+  /** Revokes the current token server-side (`POST /user/auth/logout`) before dropping it locally — see the call site for why this can't just be a client-side clear. */
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -74,10 +77,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [persistToken, queryClient],
   )
 
-  const logout = useCallback(() => {
-    persistToken(null)
-    queryClient.removeQueries({ queryKey: queryKeys.authMe() })
-    queryClient.removeQueries({ queryKey: queryKeys.reservations() })
+  const loginWithToken = useCallback(
+    (token: string) => {
+      persistToken(token)
+    },
+    [persistToken],
+  )
+
+  const logout = useCallback(async () => {
+    // The JWT is otherwise stateless (Backend/CLAUDE.md's Auth section) — without this call
+    // the token would keep working for anyone who captured it (a shared/public machine, a
+    // proxy log) even after this device "signs out". Best-effort: still clear local state on
+    // failure (offline, token already expired) so the user isn't stuck looking logged-in here.
+    try {
+      await apiFetch('/user/auth/logout', { method: 'POST' })
+    } catch {
+      // ignore — see comment above
+    } finally {
+      persistToken(null)
+      queryClient.removeQueries({ queryKey: queryKeys.authMe() })
+      queryClient.removeQueries({ queryKey: queryKeys.reservations() })
+    }
   }, [persistToken, queryClient])
 
   // A token that's no longer valid (expired/revoked) — drop it rather than
@@ -96,9 +116,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isInitializing: !!token && meQuery.isLoading,
       login,
       register,
+      loginWithToken,
       logout,
     }),
-    [token, meQuery.data, meQuery.isLoading, login, register, logout],
+    [token, meQuery.data, meQuery.isLoading, login, register, loginWithToken, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

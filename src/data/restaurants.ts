@@ -156,9 +156,9 @@ const ENRICHMENT: Omit<Restaurant, 'id' | 'name' | 'description' | 'city' | 'dis
 // Home "browse by city" image-grid — curated marketing copy, not the real city vocabulary.
 // Filter dropdowns use useCities()/useDistricts() (src/hooks/api/useCatalog.ts) instead.
 export const cities: CityHighlight[] = [
-  { name: 'Phnom Penh', imageId: 'photo-1596422846543-75c6fc197f07', description: 'The capital — riverside dining and the city’s biggest restaurant scene' },
-  { name: 'Siem Reap', imageId: 'photo-1533929736458-ca588d08c8be', description: 'Gateway to Angkor, with a lively old-town dining strip' },
-  { name: 'Sihanoukville', imageId: 'photo-1544025162-d76538891a99', description: 'Coastal city known for fresh seafood and beachfront kitchens' },
+  { name: 'Phnom Penh', image: '/phnom_penh.webp', description: 'The capital — riverside dining and the city’s biggest restaurant scene' },
+  { name: 'Siem Reap', image: '/siem_reap.webp', description: 'Gateway to Angkor, with a lively old-town dining strip' },
+  { name: 'Sihanoukville', image: '/sihanoukville.webp', description: 'Coastal city known for fresh seafood and beachfront kitchens' },
 ]
 
 function hashIndex(id: string, length: number): number {
@@ -236,9 +236,14 @@ interface RestaurantsPage {
  * position in the overall filtered result set (`offset + i`) so it stays
  * consistent as more pages load, rather than restarting at 0 every page.
  */
-export function useInfiniteRestaurants(filters: RestaurantFilters = {}, pageSize = 20) {
+export function useInfiniteRestaurants(
+  filters: RestaurantFilters = {},
+  pageSize = 20,
+  options: { enabled?: boolean } = {},
+) {
   return useInfiniteQuery({
     queryKey: queryKeys.restaurantsInfinite(filters),
+    enabled: options.enabled ?? true,
     queryFn: async ({ pageParam }): Promise<RestaurantsPage> => {
       const params = buildRestaurantsParams(filters)
       params.set('limit', String(pageSize))
@@ -262,6 +267,37 @@ export function useInfiniteRestaurants(filters: RestaurantFilters = {}, pageSize
       return nextOffset < lastPage.total ? nextOffset : undefined
     },
     staleTime: RESTAURANTS_STALE_TIME,
+  })
+}
+
+export function useRestaurantsPage(
+  filters: RestaurantFilters = {},
+  page = 1,
+  pageSize = 20,
+  options: { enabled?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: queryKeys.restaurantsPage(filters, page, pageSize),
+    queryFn: async (): Promise<RestaurantsPage> => {
+      const params = buildRestaurantsParams(filters)
+      params.set('limit', String(pageSize))
+      params.set('offset', String((page - 1) * pageSize))
+      const { restaurants, total, limit, offset } = await apiFetch<{
+        restaurants: ApiRestaurant[]
+        total: number
+        limit: number
+        offset: number
+      }>(`/user/restaurants?${params.toString()}`)
+      return {
+        restaurants: restaurants.map((r, i) => toRestaurant(r, offset + i)),
+        total,
+        limit,
+        offset,
+      }
+    },
+    enabled: options.enabled ?? true,
+    staleTime: RESTAURANTS_STALE_TIME,
+    placeholderData: (previousData) => previousData,
   })
 }
 

@@ -1,6 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useRestaurantById } from '@/data/restaurants'
+import CalendarIcon from '@/components/icons/CalendarIcon'
+import EditIcon from '@/components/icons/EditIcon'
+import MailIcon from '@/components/icons/MailIcon'
+import MapIcon from '@/components/icons/MapIcon'
+import ShareIcon from '@/components/icons/ShareIcon'
 import { useAuth } from '@/lib/auth'
 import { ROUTES } from '@/lib/constants'
 import { formatDate, formatPartySize, unsplashUrl } from '@/lib/format'
@@ -83,7 +88,7 @@ export default function Confirmation() {
 
         {/* Confirmation sent notice */}
         <div className="bg-gold-light rounded-xl p-4 mb-5 flex gap-3">
-          <span className="text-base mt-0.5">📧</span>
+          <MailIcon className="size-4 mt-0.5 shrink-0" />
           <div>
             <p className="text-sm font-medium text-ink">{t('confirmation.confirmationSent')}</p>
             <p className="text-xs text-ink-muted mt-0.5">
@@ -95,22 +100,22 @@ export default function Confirmation() {
         {/* Actions */}
         <div className="grid grid-cols-2 gap-3 mb-5">
           <button className="flex flex-col items-center gap-1.5 py-4 bg-white rounded-xl border border-border hover:border-terra/30 hover:shadow-md transition-all">
-            <span className="text-xl">📅</span>
+            <CalendarIcon className="size-5 text-ink" />
             <span className="text-xs font-medium text-ink">{t('confirmation.addToCalendar')}</span>
           </button>
           <button className="flex flex-col items-center gap-1.5 py-4 bg-white rounded-xl border border-border hover:border-terra/30 hover:shadow-md transition-all">
-            <span className="text-xl">🗺️</span>
+            <MapIcon className="size-5 text-ink" />
             <span className="text-xs font-medium text-ink">{t('confirmation.getDirections')}</span>
           </button>
           <button
             onClick={() => navigate(ROUTES.manageBooking(booking.bookingRef), { state: booking })}
             className="flex flex-col items-center gap-1.5 py-4 bg-white rounded-xl border border-border hover:border-terra/30 hover:shadow-md transition-all"
           >
-            <span className="text-xl">✏️</span>
+            <EditIcon className="size-5 text-ink" />
             <span className="text-xs font-medium text-ink">{t('confirmation.manageBooking')}</span>
           </button>
           <button className="flex flex-col items-center gap-1.5 py-4 bg-white rounded-xl border border-border hover:border-terra/30 hover:shadow-md transition-all">
-            <span className="text-xl">📤</span>
+            <ShareIcon className="size-5 text-ink" />
             <span className="text-xs font-medium text-ink">{t('confirmation.share')}</span>
           </button>
         </div>

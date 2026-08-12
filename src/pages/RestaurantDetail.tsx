@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useRestaurantById } from '@/data/restaurants'
 import { useCatalogItems } from '@/hooks/api/useCatalog'
+import CheckIcon from '@/components/icons/CheckIcon'
+import StarIcon from '@/components/icons/StarIcon'
 import Chip from '@/components/ui/Chip'
 import PartySizeStepper from '@/components/ui/PartySizeStepper'
 import { Button } from '@/components/ui/button'
@@ -114,7 +116,7 @@ export default function RestaurantDetail() {
                 </div>
                 <div className="shrink-0 text-right">
                   <div className="flex items-center gap-1 justify-end">
-                    <span className="text-yellow-500">★</span>
+                    <StarIcon className="size-4 text-yellow-500 shrink-0" />
                     <span className="font-display font-semibold text-xl text-ink">{restaurant.rating}</span>
                   </div>
                   <p className="text-xs text-ink-faint">{restaurant.reviewCount} {t('restaurantDetail.reviews')}</p>
@@ -173,7 +175,7 @@ export default function RestaurantDetail() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-display text-xl font-semibold text-ink">{t('restaurantDetail.reviewsHeading')}</h2>
                 <div className="flex items-center gap-2">
-                  <span className="text-yellow-500">★</span>
+                  <StarIcon className="size-4 text-yellow-500 shrink-0" />
                   <span className="font-semibold text-ink">{restaurant.rating}</span>
                   <span className="text-ink-faint text-sm">({restaurant.reviewCount})</span>
                 </div>
@@ -193,7 +195,7 @@ export default function RestaurantDetail() {
                       </div>
                       <div className="flex">
                         {Array.from({ length: 5 }).map((_, i) => (
-                          <span key={i} className={`text-sm ${i < review.rating ? 'text-yellow-500' : 'text-border'}`}>★</span>
+                          <StarIcon key={i} className={`size-3.5 ${i < review.rating ? 'text-yellow-500' : 'text-border'}`} />
                         ))}
                       </div>
                     </div>
@@ -244,7 +246,10 @@ export default function RestaurantDetail() {
               <h2 className="font-display text-xl font-semibold text-ink mb-4">{t('restaurantDetail.amenities')}</h2>
               <div className="flex flex-wrap gap-2">
                 {restaurant.amenities.map((a) => (
-                  <span key={a} className="text-sm text-ink-muted bg-cream-dark rounded-full px-3 py-1.5 border border-border">✓ {a}</span>
+                  <span key={a} className="inline-flex items-center gap-1 text-sm text-ink-muted bg-cream-dark rounded-full px-3 py-1.5 border border-border">
+                    <CheckIcon className="size-3.5 shrink-0" />
+                    {a}
+                  </span>
                 ))}
               </div>
             </div>
@@ -312,7 +317,7 @@ export default function RestaurantDetail() {
         <div>
           <p className="text-sm font-semibold text-ink">{restaurant.name}</p>
           <div className="flex items-center gap-1">
-            <span className="text-yellow-500 text-xs">★</span>
+            <StarIcon className="size-3 text-yellow-500 shrink-0" />
             <span className="text-xs text-ink-muted">{restaurant.rating} · {restaurant.availableTimes.length} {t('restaurantDetail.timesAvailable')}</span>
           </div>
         </div>

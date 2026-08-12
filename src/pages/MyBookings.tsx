@@ -8,7 +8,10 @@ import { useAuth } from "@/lib/auth"
 import { ROUTES } from "@/lib/constants"
 import { formatDate, formatPartySize, unsplashUrl } from "@/lib/format"
 import type { Booking } from "@/types/booking"
+import CalendarIcon from "@/components/icons/CalendarIcon"
+import ClockIcon from "@/components/icons/ClockIcon"
 import RestaurantIcon from "@/components/icons/RestaurantIcon"
+import UsersIcon from "@/components/icons/UsersIcon"
 
 function BookingCard({ booking, past }: { booking: Booking; past?: boolean }) {
   const { t } = useTranslation()
@@ -44,9 +47,18 @@ function BookingCard({ booking, past }: { booking: Booking; past?: boolean }) {
             <StatusBadge status={booking.status} />
           </div>
           <div className="flex flex-wrap gap-3 text-sm text-ink-muted mb-3">
-            <span>📅 {formatDate(booking.date, "short")}</span>
-            <span>🕖 {booking.time}</span>
-            <span>👥 {formatPartySize(booking.partySize)}</span>
+            <span className="inline-flex items-center gap-1">
+              <CalendarIcon className="size-3.5 shrink-0" />
+              {formatDate(booking.date, "short")}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <ClockIcon className="size-3.5 shrink-0" />
+              {booking.time}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <UsersIcon className="size-3.5 shrink-0" />
+              {formatPartySize(booking.partySize)}
+            </span>
           </div>
           <div className="flex items-center justify-between">
             <p className="font-mono text-xs text-ink-faint">{booking.ref}</p>
