@@ -28,6 +28,16 @@
       media="(prefers-color-scheme: dark)"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Baseline CSP — meta tag only, so it can't set frame-ancestors, report-uri, or the
+      X-Frame-Options/HSTS headers that need the hosting/CDN layer (see SECURITY_CHECKLIST.md A02).
+      connect-src's http://localhost:3000 matches lib/constants.ts's DEFAULT_API_BASE_URL; a
+      production deploy pointing VITE_API_BASE_URL at a different origin needs that origin added here too.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com; connect-src 'self' http://localhost:3000; object-src 'none'; base-uri 'self'; form-action 'self';"
+    />
     <title><!-- figma:title --></title>
     <!-- figma:head-end -->
   </head>
