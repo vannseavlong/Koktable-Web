@@ -31,12 +31,15 @@
     <!--
       Baseline CSP — meta tag only, so it can't set frame-ancestors, report-uri, or the
       X-Frame-Options/HSTS headers that need the hosting/CDN layer (see SECURITY_CHECKLIST.md A02).
-      connect-src's http://localhost:3000 matches lib/constants.ts's DEFAULT_API_BASE_URL; a
-      production deploy pointing VITE_API_BASE_URL at a different origin needs that origin added here too.
+      connect-src always allows localhost:3000 (lib/constants.ts's DEFAULT_API_BASE_URL, for local
+      dev) plus %VITE_API_BASE_URL% — Vite's built-in index.html env substitution, resolved from
+      .env.production at build time so a production deploy's real API origin is always in sync
+      here without hand-editing this file per deploy. Empty/unset in dev builds — harmless, leaves
+      a trailing space before the semicolon.
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com; connect-src 'self' http://localhost:3000; object-src 'none'; base-uri 'self'; form-action 'self';"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com; connect-src 'self' http://localhost:3000 %VITE_API_BASE_URL%; object-src 'none'; base-uri 'self'; form-action 'self';"
     />
     <title><!-- figma:title --></title>
     <!-- figma:head-end -->
