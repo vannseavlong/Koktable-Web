@@ -17,8 +17,7 @@ import { useAuth } from '@/lib/auth'
 import { takePendingCheckout } from '@/lib/pendingCheckout'
 
 const PATHS_WITHOUT_CHROME = new Set<string>([ROUTES.login])
-// RestaurantDetail renders a fixed bottom reservation bar below `lg`; the
-// footer needs matching bottom padding there or the bar overlaps its text.
+// RestaurantDetail's fixed bottom reservation bar (below `lg`) needs matching footer padding to avoid overlap.
 const RESTAURANT_DETAIL_PATH = /^\/restaurants\/[^/]+$/
 
 export default function App() {
@@ -29,32 +28,17 @@ export default function App() {
   const showChrome = !PATHS_WITHOUT_CHROME.has(location.pathname)
   const hasMobileStickyBar = RESTAURANT_DETAIL_PATH.test(location.pathname)
 
-  // Guards against React StrictMode's dev-only double-invoke of effects: this effect
-  // calls takePendingCheckout(), a one-shot read-and-clear (see lib/pendingCheckout.ts).
-  // Without this ref, StrictMode's second invocation (same render, same `token`) would
-  // find the snapshot already consumed by the first, fall through to the plain
-  // token-strip branch, and its `navigate(..., { replace: true })` would clobber the
-  // first invocation's navigate-to-Checkout — which is exactly what happened before
-  // this guard was added: signing in from Checkout's Google button landed on Home with
-  // the booking silently gone, in dev only.
+  // Prevents StrictMode's dev-only double-invoke from re-consuming takePendingCheckout() and clobbering the first navigate.
   const hasHandledTokenRef = useRef(false)
 
-  // The Google OAuth redirect (see the "Continue with Google" link in `pages/Login.tsx`
-  // / `components/auth/AuthDialog.tsx`) always lands back on this app's bare origin
-  // with `?token=` — the package driving the flow has no way to round-trip a "return
-  // to this page" path through it. Pick the token up here rather than in Login so it's
-  // caught regardless of which page it lands on, persist it, then strip it from the URL.
+  // Picks up the `?token=` the Google OAuth redirect lands on this app's bare origin with, regardless of which page it hits, then strips it.
   useEffect(() => {
     const token = searchParams.get('token')
     if (!token || hasHandledTokenRef.current) return
     hasHandledTokenRef.current = true
     loginWithToken(token)
 
-    // Checkout stashed its in-progress booking (lib/pendingCheckout.ts) right before
-    // sending the browser off to Google, since that redirect can't carry React state
-    // through it — hand it back via router state so Checkout can restore the form
-    // (and resume straight into submitting, if that's what it was waiting on) instead
-    // of the user losing everything they'd filled in just for signing in.
+    // Hands Checkout's stashed pending booking back via router state so the form can be restored after the OAuth redirect.
     const pending = takePendingCheckout()
     if (pending) {
       const params = new URLSearchParams({
