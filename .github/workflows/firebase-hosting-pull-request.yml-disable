@@ -31,8 +31,10 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
       - run: pnpm exec tsc --noEmit
       - run: pnpm build
+      - run: pnpm audit --audit-level=high
 
       # Deploys dist/ to an isolated, auto-expiring preview channel
       # (one per PR) and comments the preview URL on the PR.

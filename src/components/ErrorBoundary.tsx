@@ -22,6 +22,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    // eslint-disable-next-line no-console -- componentDidCatch's documented purpose
     console.error('Unhandled error', error, info)
   }
 

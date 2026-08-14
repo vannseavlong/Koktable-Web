@@ -35,7 +35,6 @@ export default function RestaurantDetail() {
 
   const [activeMenu, setActiveMenu] = useState<'product' | 'service'>('product')
   const [date, setDate] = useState('')
-  const [time, setTime] = useState('')
   const { partySize, increment, decrement } = usePartySize()
   const [selectedTime, setSelectedTime] = useState('')
 
@@ -61,7 +60,7 @@ export default function RestaurantDetail() {
     const params = new URLSearchParams({
       restaurantId: restaurant.id,
       date,
-      time: selectedTime || time,
+      time: selectedTime,
       partySize: String(partySize),
     })
     navigate(`${ROUTES.checkout}?${params.toString()}`)
@@ -296,7 +295,7 @@ export default function RestaurantDetail() {
 
                 <Button
                   onClick={handleReserve}
-                  disabled={restaurant.availableTimes.length === 0 || !date || !(selectedTime || time)}
+                  disabled={restaurant.availableTimes.length === 0 || !date || !(selectedTime)}
                   size="lg"
                   className="w-full"
                 >
@@ -321,7 +320,7 @@ export default function RestaurantDetail() {
             <span className="text-xs text-ink-muted">{restaurant.rating} · {restaurant.availableTimes.length} {t('restaurantDetail.timesAvailable')}</span>
           </div>
         </div>
-        <Button onClick={handleReserve} disabled={restaurant.availableTimes.length === 0 || !date || !(selectedTime || time)}>
+        <Button onClick={handleReserve} disabled={restaurant.availableTimes.length === 0 || !date || !(selectedTime)}>
           {t('restaurantDetail.reserve')}
         </Button>
       </div>

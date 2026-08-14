@@ -242,7 +242,7 @@ export function useInfiniteRestaurants(
   options: { enabled?: boolean } = {},
 ) {
   return useInfiniteQuery({
-    queryKey: queryKeys.restaurantsInfinite(filters),
+    queryKey: queryKeys.restaurantsInfinite(filters, pageSize),
     enabled: options.enabled ?? true,
     queryFn: async ({ pageParam }): Promise<RestaurantsPage> => {
       const params = buildRestaurantsParams(filters)
