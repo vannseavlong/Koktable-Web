@@ -3,6 +3,7 @@ packages:
 
 allowBuilds:
   protobufjs: true
+  re2: true
 
 minimumReleaseAgeExclude:
   - '@rolldown/binding-linux-s390x-gnu@1.2.4'
