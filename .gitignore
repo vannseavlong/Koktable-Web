@@ -25,3 +25,8 @@ yarn-error.log*
 
 # Vite
 *.local
+
+# Firebase
+.firebase/
+firebase-debug.log
+.firebaserc.local
